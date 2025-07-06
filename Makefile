@@ -24,7 +24,7 @@ ARCH ?= $(shell go env GOARCH)
 CGO_ENABLED ?= 0
 
 # Directories
-BUILD_DIR := build
+BIN_DIR := bin
 DIST_DIR := dist
 WEBSITE_DIR := website
 
@@ -40,21 +40,18 @@ help: ## Show this help message
 	@echo "Targets:"
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-15s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-.PHONY: compile
-compile: website-build $(BUILD_DIR) ## Build the executable
+.PHONY: build
+build: generate $(BIN_DIR) ## Build the executable
 	@echo "Building $(BINARY_NAME) for $(OS)/$(ARCH)..."
 	CGO_ENABLED=$(CGO_ENABLED) GOOS=$(OS) GOARCH=$(ARCH) go build \
 		-ldflags "$(LDFLAGS)" \
-		-o $(BUILD_DIR)/$(BINARY_NAME) \
+		-o $(BIN_DIR)/$(BINARY_NAME) \
 		$(MAIN_PACKAGE)
 
-.PHONY: build
-build: compile ## Build the executable (alias)
-
 .PHONY: debug
-debug: $(BUILD_DIR) ## Build debug version with race detection
+debug: $(BIN_DIR) ## Build debug version with race detection
 	@echo "Building debug version..."
-	go build -race -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-debug $(MAIN_PACKAGE)
+	go build -race -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/$(BINARY_NAME)-debug $(MAIN_PACKAGE)
 
 .PHONY: install
 install: ## Install the binary to GOPATH/bin
@@ -64,7 +61,7 @@ install: ## Install the binary to GOPATH/bin
 .PHONY: clean
 clean: ## Remove build artifacts
 	@echo "Cleaning build artifacts..."
-	rm -rf $(BUILD_DIR) $(DIST_DIR)
+	rm -rf $(BIN_DIR) $(DIST_DIR)
 	rm -f $(BINARY_NAME) $(BINARY_NAME)-debug
 
 .PHONY: test
@@ -115,7 +112,7 @@ mod: ## Tidy and verify go modules
 	go mod verify
 
 .PHONY: generate
-generate: website-build ## Run go generate
+generate: ## Run go generate
 	@echo "Running go generate..."
 	go generate ./...
 
@@ -137,7 +134,7 @@ website-install: ## Install website dependencies
 .PHONY: run
 run: build ## Build and run the server
 	@echo "Starting $(BINARY_NAME)..."
-	./$(BUILD_DIR)/$(BINARY_NAME)
+	./$(BIN_DIR)/$(BINARY_NAME)
 
 .PHONY: dev
 dev: ## Run in development mode (without building)
@@ -157,7 +154,7 @@ tools: ## Install development tools
 	fi
 
 .PHONY: cross-compile
-cross-compile: website-build $(BUILD_DIR) ## Build for multiple platforms
+cross-compile: generate $(BIN_DIR) ## Build for multiple platforms
 	@echo "Cross-compiling for multiple platforms..."
 	@mkdir -p $(DIST_DIR)
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(DIST_DIR)/$(BINARY_NAME)-linux-amd64 $(MAIN_PACKAGE)
@@ -191,7 +188,7 @@ deps: mod website-install ## Install all dependencies
 .PHONY: all
 all: clean deps generate check build ## Run a complete build pipeline
 
-# Create build directory
-$(BUILD_DIR):
-	@mkdir -p $(BUILD_DIR)
+# Create bin directory
+$(BIN_DIR):
+	@mkdir -p $(BIN_DIR)
 

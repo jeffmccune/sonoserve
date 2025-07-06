@@ -1,3 +1,5 @@
+//go:generate go run website/generate.go
+
 package main
 
 import (
