@@ -140,3 +140,31 @@ Fixed the music folder location and embed patterns:
   - `/music/sample.mp3` - 200 OK, serving embedded mp3
   - `/ui/` - 200 OK, serving embedded website
   - `/api/sonos/discover` - 200 OK, returning mock speaker data
+
+## Turn 12
+
+> Please add idiomatic Go test cases for each of the endpoints we have so we can easily validate expected behavior as we make further changes to the system.
+
+Added comprehensive test coverage for all endpoints:
+
+**Refactored main.go for testability:**
+- Extracted setupRoutes() function to create testable handler mux
+- Split handlers into individual functions (healthHandler, playHandler, etc.)
+- Moved SpeakerInfo struct to package level
+
+**Created main_test.go with complete test coverage:**
+- TestHealthHandler - validates GET /health returns "OK"
+- TestPlayHandler - tests POST /sonos/play and method validation
+- TestPauseHandler - tests POST /sonos/pause and method validation  
+- TestRestartPlaylistHandler - tests POST /sonos/restart-playlist and method validation
+- TestDiscoverHandler - tests POST /api/sonos/discover, JSON response structure, and Content-Type
+- TestSetupRoutes - integration test verifying all routes are properly registered
+- TestMusicFileServing - validates embedded MP3 file serving with correct Content-Type
+- TestWebsiteServing - validates embedded Docusaurus website serving
+- TestNonExistentRoutes - tests 404 behavior for invalid paths
+
+**Test execution:**
+- All tests pass (9 test functions, 23 sub-tests)
+- Tests validate both success and error cases
+- Tests verify HTTP methods, status codes, response bodies, and headers
+- Coverage includes embedded file serving functionality

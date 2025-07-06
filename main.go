@@ -16,7 +16,12 @@ import (
 //go:embed all:music
 var musicFS embed.FS
 
-func main() {
+type SpeakerInfo struct {
+	Name string `json:"name"`
+	IP   string `json:"ip"`
+}
+
+func setupRoutes() *http.ServeMux {
 	mux := http.NewServeMux()
 
 	// Serve embedded music files
@@ -33,66 +38,73 @@ func main() {
 	}
 	mux.Handle("/ui/", http.StripPrefix("/ui/", http.FileServer(http.FS(websiteSubFS))))
 
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK\n"))
-	})
+	mux.HandleFunc("/health", healthHandler)
+	mux.HandleFunc("/sonos/play", playHandler)
+	mux.HandleFunc("/sonos/pause", pauseHandler)
+	mux.HandleFunc("/sonos/restart-playlist", restartPlaylistHandler)
+	mux.HandleFunc("/api/sonos/discover", discoverHandler)
 
-	mux.HandleFunc("/sonos/play", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-		log.Println("Play requested")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("Playing\n"))
-	})
+	return mux
+}
 
-	mux.HandleFunc("/sonos/pause", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-		log.Println("Pause requested")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("Paused\n"))
-	})
+func healthHandler(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("OK\n"))
+}
 
-	mux.HandleFunc("/sonos/restart-playlist", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-		log.Println("Restart playlist requested")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("Playlist restarted\n"))
-	})
+func playHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	log.Println("Play requested")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Playing\n"))
+}
 
-	mux.HandleFunc("/api/sonos/discover", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-		
-		log.Println("Discovering Sonos devices...")
-		
-		type SpeakerInfo struct {
-			Name string `json:"name"`
-			IP   string `json:"ip"`
-		}
-		
-		var speakers []SpeakerInfo
-		
-		// For now, return a mock speaker for testing
-		// TODO: Implement actual Sonos discovery
-		speakers = append(speakers, SpeakerInfo{
-			Name: "Test Sonos Speaker",
-			IP:   "192.168.1.100",
-		})
-		
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(speakers)
+func pauseHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	log.Println("Pause requested")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Paused\n"))
+}
+
+func restartPlaylistHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	log.Println("Restart playlist requested")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Playlist restarted\n"))
+}
+
+func discoverHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	
+	log.Println("Discovering Sonos devices...")
+	
+	var speakers []SpeakerInfo
+	
+	// For now, return a mock speaker for testing
+	// TODO: Implement actual Sonos discovery
+	speakers = append(speakers, SpeakerInfo{
+		Name: "Test Sonos Speaker",
+		IP:   "192.168.1.100",
 	})
+	
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(speakers)
+}
+
+func main() {
+	mux := setupRoutes()
 
 	srv := &http.Server{
 		Addr:    ":8080",
