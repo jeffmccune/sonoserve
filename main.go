@@ -84,6 +84,7 @@ func setupRoutes() *http.ServeMux {
 	mux.HandleFunc("/sonos/pause", pauseHandler)
 	mux.HandleFunc("/sonos/restart-playlist", restartPlaylistHandler)
 	mux.HandleFunc("/api/sonos/discover", discoverHandler)
+	mux.HandleFunc("/api/sonos/speakers", speakersHandler)
 
 	return mux
 }
@@ -272,6 +273,26 @@ func discoverHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	
 	log.Printf("Discovery completed, found %d speakers", len(speakers))
+	
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(speakers)
+}
+
+func speakersHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	
+	log.Println("Getting cached speakers...")
+	
+	// Convert speakerCache map to slice for JSON response
+	var speakers []Speaker
+	for _, speaker := range speakerCache {
+		speakers = append(speakers, speaker)
+	}
+	
+	log.Printf("Returning %d cached speakers", len(speakers))
 	
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(speakers)

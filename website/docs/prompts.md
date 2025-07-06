@@ -370,3 +370,33 @@ Implemented device names and startup discovery optimization:
 - Subsequent discovery calls can use cached data
 - Background startup discovery doesn't delay server initialization
 - Deduplication prevents multiple entries for same device
+
+## Turn 21
+
+> Great, thanks.
+> 
+> 1. Rename the discover button in controller.md to refresh speakers.
+> 2. Add a new button named "Get Speakers" with a new API endpoint that gets the current set of discovered speakers from the cache.  This button should be in the Device Discovery section of controller.md above the refresh speakers button.
+> 3. Update prompts and commit.
+
+Added "Get Speakers" functionality and improved UI organization:
+
+**UI Updates:**
+- Added "Get Speakers" button above the refresh button in Device Discovery section
+- Renamed "Discover Speakers" button to "Refresh Speakers" 
+- Updated button text during operations: "Getting..." and "Refreshing..."
+- Enhanced speaker display to show room names: `${speaker.name} (${speaker.room}) - ${speaker.address}`
+
+**New API Endpoint:**
+- Added `/api/sonos/speakers` GET endpoint via `speakersHandler()`
+- Returns cached speakers from `speakerCache` map without triggering new discovery
+- Converts map to slice for consistent JSON response format
+- Provides fast access to already discovered speakers
+
+**Improved User Experience:**
+- "Get Speakers" provides instant access to cached results
+- "Refresh Speakers" performs full network discovery when needed
+- Clear distinction between cached vs. fresh discovery operations
+- Better feedback with "No speakers in cache" vs. "No speakers found" messages
+
+The interface now offers both quick cache access and full discovery refresh options.

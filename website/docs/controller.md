@@ -26,9 +26,53 @@ Control your Sonos speakers from this interface.
 
 ## Device Discovery
 
-Click the button below to discover Sonos speakers on your network:
+Get the current list of discovered speakers or refresh by discovering new ones:
 
-<div>
+<div style={{marginBottom: '10px'}}>
+  <button 
+    id="getSpeakersBtn"
+    onClick={() => {
+      const button = document.getElementById('getSpeakersBtn');
+      const list = document.getElementById('speakersList');
+      const serverInput = document.getElementById('serverInput');
+      const server = serverInput.value || 'localhost:8080';
+      
+      button.disabled = true;
+      button.textContent = 'Getting...';
+      
+      // Use relative URL if we're on the same host (development mode with proxy)
+      const url = (window.location.host === server) 
+        ? '/api/sonos/speakers' 
+        : `http://${server}/api/sonos/speakers`;
+      
+      fetch(url, { method: 'GET' })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          return response.json();
+        })
+        .then(speakers => {
+          if (speakers.length === 0) {
+            list.innerHTML = '<em>No speakers in cache. Click "Refresh Speakers" to discover speakers.</em>';
+          } else {
+            list.innerHTML = '<h4>Cached Speakers:</h4><ul>' + 
+              speakers.map(speaker => `<li>${speaker.name} (${speaker.room}) - ${speaker.address}</li>`).join('') + 
+              '</ul>';
+          }
+        })
+        .catch(error => {
+          list.innerHTML = `<em style={{color: 'red'}}>Error: ${error.message}</em>`;
+        })
+        .finally(() => {
+          button.disabled = false;
+          button.textContent = 'Get Speakers';
+        });
+    }}
+    style={{marginRight: '10px'}}
+  >
+    Get Speakers
+  </button>
   <button 
     id="discoverBtn"
     onClick={() => {
@@ -38,7 +82,7 @@ Click the button below to discover Sonos speakers on your network:
       const server = serverInput.value || 'localhost:8080';
       
       button.disabled = true;
-      button.textContent = 'Discovering...';
+      button.textContent = 'Refreshing...';
       list.innerHTML = '<em>Searching for speakers...</em>';
       
       // Use relative URL if we're on the same host (development mode with proxy)
@@ -67,11 +111,11 @@ Click the button below to discover Sonos speakers on your network:
         })
         .finally(() => {
           button.disabled = false;
-          button.textContent = 'Discover Speakers';
+          button.textContent = 'Refresh Speakers';
         });
     }}
   >
-    Discover Speakers
+    Refresh Speakers
   </button>
 </div>
 
