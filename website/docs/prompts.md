@@ -666,3 +666,36 @@ Fixed the localhost playlist URI issue by implementing proper network address ha
 - ✅ Playlist URLs now use actual network IP instead of localhost
 
 This resolves the "714" error by ensuring Sonos speakers receive playlist URLs they can actually connect to from their network perspective.
+
+## Turn 34
+
+> OK, it still doesn't work with error "Failed to set playlist URI: 714" and the go server returns a 500 error calling the play endpoint.  Do some research about this problem and figure out why it's not working.  My guess is we're using the Go sonos package API incorrectly.
+
+Fixed the "714 illegal MIME-Type" error by implementing proper Sonos queue-based playback:
+
+**Root Cause Analysis:**
+- Error 714 means "illegal MIME-Type" in UPnP AVTransport
+- The issue was using `SetAVTransportURI` with M3U playlist URLs
+- Sonos devices don't accept M3U playlists directly via SetAVTransportURI
+- Researched go-sonos package documentation in `/upnp/AVTransport.go`
+
+**Correct Sonos API Approach:**
+- Use `AddURIToQueue()` to add individual MP3 tracks to Sonos queue (Q:0)
+- Use `RemoveAllTracksFromQueue()` to clear existing queue first  
+- Use `SetAVTransportURI(0, "Q:0", "")` to set playback source to the queue
+- Use `Play(0, "1")` to start playback from the queue
+
+**Implementation Changes:**
+- Replaced M3U playlist approach with queue-based approach
+- Walk embedded filesystem to find MP3 files individually
+- Add each MP3 URL directly to Sonos queue using `AddURIToQueue`
+- Construct proper `AddURIToQueueIn` structs with MP3 URLs
+- Set AV Transport URI to "Q:0" (queue) instead of playlist URL
+
+**Technical Details:**
+- `AddURIToQueue` accepts individual track URIs (e.g., `http://192.168.4.134:8080/music/sample.mp3`)
+- Queue URI "Q:0" refers to the Sonos device's internal queue
+- Each track added gets a position number in the queue
+- Proper error handling for each queue operation
+
+This follows the documented go-sonos library patterns and should resolve the MIME-Type error by using Sonos-native queue management instead of external playlists.

@@ -266,15 +266,6 @@ func playHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	// Get the server's base URL to construct playlist URL using configured resource host
-	scheme := "http"
-	if r.TLS != nil {
-		scheme = "https"
-	}
-	playlistURL := fmt.Sprintf("%s://%s/playlist", scheme, resourceHost)
-	
-	log.Printf("Attempting to play playlist %s on speaker %s at %s", playlistURL, speaker.Name, speaker.Address)
-	
 	// Connect to Sonos device
 	locationURL := fmt.Sprintf("http://%s:1400/xml/device_description.xml", speaker.Address)
 	
@@ -293,18 +284,79 @@ func playHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	// Set the AV Transport URI to our playlist
-	// SetAVTransportURI requires (instanceID, currentURI, currentURIMetaData)
-	err = s.SetAVTransportURI(0, playlistURL, "")
+	// Clear the current queue first
+	log.Printf("Clearing current queue on %s", speaker.Name)
+	err = s.RemoveAllTracksFromQueue(0)
 	if err != nil {
-		log.Printf("Failed to set playlist URI: %v", err)
-		http.Error(w, "Failed to set playlist", http.StatusInternalServerError)
+		log.Printf("Warning: Failed to clear queue: %v", err)
+	}
+	
+	// Get all MP3 files from embedded filesystem and add them to the queue
+	scheme := "http"
+	if r.TLS != nil {
+		scheme = "https"
+	}
+	baseURL := fmt.Sprintf("%s://%s", scheme, resourceHost)
+	
+	var addedTracks int
+	err = fs.WalkDir(musicFS, "music", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		
+		if !d.IsDir() && strings.HasSuffix(strings.ToLower(path), ".mp3") {
+			// Convert embedded path to HTTP URL
+			// Remove "music/" prefix since our HTTP handler strips it
+			httpPath := strings.TrimPrefix(path, "music/")
+			songURL := fmt.Sprintf("%s/music/%s", baseURL, httpPath)
+			
+			log.Printf("Adding track to queue: %s", songURL)
+			
+			// Add URI to queue - empty metadata is fine
+			req := &upnp.AddURIToQueueIn{
+				EnqueuedURI:         songURL,
+				EnqueuedURIMetaData: "",
+				DesiredFirstTrackNumberEnqueued: 0,
+				EnqueueAsNext: false,
+			}
+			
+			if out, err := s.AddURIToQueue(0, req); err != nil {
+				log.Printf("Failed to add track %s to queue: %v", songURL, err)
+				return err
+			} else {
+				log.Printf("Added track %s at position %d", songURL, out.FirstTrackNumberEnqueued)
+				addedTracks++
+			}
+		}
+		
+		return nil
+	})
+	
+	if err != nil {
+		log.Printf("Failed to add tracks to queue: %v", err)
+		http.Error(w, "Failed to add tracks to queue", http.StatusInternalServerError)
 		return
 	}
 	
-	log.Printf("Playlist URI set successfully, starting playback...")
+	if addedTracks == 0 {
+		log.Println("No MP3 files found to add to queue")
+		http.Error(w, "No songs available", http.StatusNotFound)
+		return
+	}
 	
-	// Start playback
+	log.Printf("Added %d tracks to queue, setting up playback from queue", addedTracks)
+	
+	// Set the AV Transport URI to the queue (Q:0) to play from the queue
+	err = s.SetAVTransportURI(0, "Q:0", "")
+	if err != nil {
+		log.Printf("Failed to set queue URI: %v", err)
+		http.Error(w, "Failed to set queue for playback", http.StatusInternalServerError)
+		return
+	}
+	
+	log.Printf("Queue URI set successfully, starting playback...")
+	
+	// Start playback from the queue
 	// Play requires (instanceID, speed)
 	err = s.Play(0, "1")
 	if err != nil {
