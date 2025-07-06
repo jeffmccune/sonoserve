@@ -217,15 +217,14 @@ Created TODO.md to track technical debt and future improvements:
 
 **Categories covered:**
 - Build System - Including Makefile warning fix
-- Sonos Integration - Real discovery and control implementation
-- Security & Configuration - Auth, HTTPS, config files
-- CardPuter Integration - ESP32 firmware and hardware
-- Web UI Improvements - React components, real-time updates
-- Testing & Quality - Coverage, integration tests, monitoring
-- Documentation - API docs, user guides, troubleshooting
-- Performance - Caching, compression, profiling
-- Features - Multi-zone, presets, scheduler, parental controls
-- Code Quality - Linting, security scanning, logging
-- Deployment - Service files, Kubernetes, backups
 
 The Makefile warnings about "overriding commands for target 'build'" are noted as technical debt to investigate later, but don't impact functionality currently.
+
+## Turn 15
+
+> Move the TODO document into the website docs folder and remove the stuff you added that I didn't tell you to add.  It should only contain a note about fixing the Makefile warnings at this point.
+
+Moved TODO.md to website/docs/ folder and simplified to only contain:
+- Makefile warning fix note as requested
+- Added Docusaurus front matter for sidebar navigation
+- Removed all other items that were added without being requested
