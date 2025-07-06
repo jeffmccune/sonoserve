@@ -16,7 +16,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/ianr0bkny/go-sonos"
 	"github.com/ianr0bkny/go-sonos/ssdp"
+	"github.com/ianr0bkny/go-sonos/upnp"
 )
 
 // Build-time variables (set via ldflags)
@@ -192,15 +194,47 @@ func discoverSonosDevices() ([]SpeakerInfo, error) {
 }
 
 func getSonosRoomName(ip string) (string, string) {
-	// For now, return placeholder values since we need proper API discovery
-	// This would require more complex Sonos API integration
 	log.Printf("Getting room name for Sonos device at %s", ip)
 	
-	// Return default values - this can be enhanced later with proper Sonos API calls
-	roomName := "Unknown Room"
-	deviceName := "Sonos Speaker"
+	// Create a manager to discover the device
+	mgr := ssdp.MakeManager()
+	defer mgr.Close()
 	
-	return roomName, deviceName
+	// Create a reactor for UPnP communications
+	reactor := sonos.MakeReactor("en0", "0")
+	
+	// Try to find the device by creating it manually using the known IP
+	locationURL := fmt.Sprintf("http://%s:1400/xml/device_description.xml", ip)
+	
+	// Try to describe the device at this location to get UPnP services
+	if svcMap, err := upnp.Describe(ssdp.Location(locationURL)); err != nil {
+		log.Printf("Failed to describe device at %s: %v", ip, err)
+		return "Unknown Room", "Sonos Speaker"
+	} else {
+		// Create Sonos connection with device properties service
+		s := sonos.MakeSonos(svcMap, reactor, sonos.SVC_DEVICE_PROPERTIES)
+		if s == nil {
+			log.Printf("Failed to create Sonos connection for %s", ip)
+			return "Unknown Room", "Sonos Speaker"
+		}
+		
+		// Get zone attributes - this returns (currentZoneName, currentIcon, error)
+		if currentZoneName, _, err := s.GetZoneAttributes(); err != nil {
+			log.Printf("Failed to get zone attributes from %s: %v", ip, err)
+			return "Unknown Room", "Sonos Speaker"
+		} else {
+			roomName := currentZoneName
+			deviceName := currentZoneName // Use zone name as device name
+			
+			if roomName == "" {
+				roomName = "Unknown Room" 
+				deviceName = "Sonos Speaker"
+			}
+			
+			log.Printf("Found Sonos device: room='%s', device='%s'", roomName, deviceName)
+			return roomName, deviceName
+		}
+	}
 }
 
 func extractIPFromLocation(location ssdp.Location) string {
