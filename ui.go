@@ -6,5 +6,5 @@ import (
 	"embed"
 )
 
-//go:embed website/build/*
+//go:embed all:website/build
 var websiteFS embed.FS

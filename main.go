@@ -11,12 +11,9 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
-
-	"github.com/ianr0bkny/go-sonos"
-	"github.com/ianr0bkny/go-sonos/ssdp"
 )
 
-//go:embed music/*
+//go:embed all:music
 var musicFS embed.FS
 
 func main() {
@@ -79,10 +76,6 @@ func main() {
 		
 		log.Println("Discovering Sonos devices...")
 		
-		// Use SSDP to discover Sonos devices
-		mgr := ssdp.MakeManager()
-		devices := mgr.Discover("eth0", "11209", false)
-		
 		type SpeakerInfo struct {
 			Name string `json:"name"`
 			IP   string `json:"ip"`
@@ -90,19 +83,12 @@ func main() {
 		
 		var speakers []SpeakerInfo
 		
-		for _, device := range devices {
-			s := sonos.Connect(device, nil, sonos.SVC_ALL)
-			if s != nil {
-				// Get device info
-				attrs, err := s.GetAttributes()
-				if err == nil {
-					speakers = append(speakers, SpeakerInfo{
-						Name: attrs["CurrentZoneName"],
-						IP:   device.String(),
-					})
-				}
-			}
-		}
+		// For now, return a mock speaker for testing
+		// TODO: Implement actual Sonos discovery
+		speakers = append(speakers, SpeakerInfo{
+			Name: "Test Sonos Speaker",
+			IP:   "192.168.1.100",
+		})
 		
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(speakers)
