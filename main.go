@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -81,6 +82,7 @@ func setupRoutes() *http.ServeMux {
 
 	mux.HandleFunc("/", rootRedirectHandler)
 	mux.HandleFunc("/health", healthHandler)
+	mux.HandleFunc("/playlist", playlistHandler)
 	mux.HandleFunc("/sonos/play", playHandler)
 	mux.HandleFunc("/sonos/pause", pauseHandler)
 	mux.HandleFunc("/sonos/restart-playlist", restartPlaylistHandler)
@@ -104,14 +106,156 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("OK\n"))
 }
 
+func playlistHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	
+	log.Println("Generating dynamic playlist...")
+	
+	// Get the server's base URL from the request
+	scheme := "http"
+	if r.TLS != nil {
+		scheme = "https"
+	}
+	host := r.Host
+	if host == "" {
+		host = "localhost:8080"
+	}
+	baseURL := fmt.Sprintf("%s://%s", scheme, host)
+	
+	// Walk the embedded music filesystem to find all MP3 files
+	var songs []string
+	err := fs.WalkDir(musicFS, "music", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		
+		if !d.IsDir() && strings.HasSuffix(strings.ToLower(path), ".mp3") {
+			// Convert embedded path to HTTP URL
+			// Remove "music/" prefix since our HTTP handler strips it
+			httpPath := strings.TrimPrefix(path, "music/")
+			songURL := fmt.Sprintf("%s/music/%s", baseURL, httpPath)
+			songs = append(songs, songURL)
+			log.Printf("Added to playlist: %s", songURL)
+		}
+		
+		return nil
+	})
+	
+	if err != nil {
+		log.Printf("Error walking music filesystem: %v", err)
+		http.Error(w, "Failed to generate playlist", http.StatusInternalServerError)
+		return
+	}
+	
+	if len(songs) == 0 {
+		log.Println("No MP3 files found in embedded filesystem")
+		http.Error(w, "No songs available", http.StatusNotFound)
+		return
+	}
+	
+	// Generate M3U playlist format
+	w.Header().Set("Content-Type", "audio/x-mpegurl")
+	w.Header().Set("Content-Disposition", "attachment; filename=\"playlist.m3u\"")
+	
+	// Write M3U header
+	w.Write([]byte("#EXTM3U\n"))
+	
+	// Write each song entry
+	for _, song := range songs {
+		// Extract filename for display
+		filename := filepath.Base(song)
+		w.Write([]byte(fmt.Sprintf("#EXTINF:-1,%s\n", filename)))
+		w.Write([]byte(fmt.Sprintf("%s\n", song)))
+	}
+	
+	log.Printf("Generated playlist with %d songs", len(songs))
+}
+
 func playHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	log.Println("Play requested")
+	
+	// Parse JSON request body to get speaker name
+	var req struct {
+		Speaker string `json:"speaker"`
+	}
+	
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON request", http.StatusBadRequest)
+		return
+	}
+	
+	if req.Speaker == "" {
+		http.Error(w, "Speaker name is required", http.StatusBadRequest)
+		return
+	}
+	
+	log.Printf("Play requested for speaker: %s", req.Speaker)
+	
+	// Find the speaker in our cache
+	speaker, exists := speakerCache[req.Speaker]
+	if !exists {
+		http.Error(w, fmt.Sprintf("Speaker '%s' not found", req.Speaker), http.StatusNotFound)
+		return
+	}
+	
+	// Get the server's base URL to construct playlist URL
+	scheme := "http"
+	if r.TLS != nil {
+		scheme = "https"
+	}
+	host := r.Host
+	if host == "" {
+		host = "localhost:8080"
+	}
+	playlistURL := fmt.Sprintf("%s://%s/playlist", scheme, host)
+	
+	log.Printf("Attempting to play playlist %s on speaker %s at %s", playlistURL, speaker.Name, speaker.Address)
+	
+	// Connect to Sonos device
+	locationURL := fmt.Sprintf("http://%s:1400/xml/device_description.xml", speaker.Address)
+	
+	svcMap, err := upnp.Describe(ssdp.Location(locationURL))
+	if err != nil {
+		log.Printf("Failed to describe Sonos device: %v", err)
+		http.Error(w, "Failed to connect to speaker", http.StatusInternalServerError)
+		return
+	}
+	
+	// Create Sonos connection with AV Transport service for playback control
+	s := sonos.MakeSonos(svcMap, nil, sonos.SVC_AV_TRANSPORT)
+	if s == nil {
+		log.Printf("Failed to create Sonos connection")
+		http.Error(w, "Failed to connect to speaker", http.StatusInternalServerError)
+		return
+	}
+	
+	// Set the AV Transport URI to our playlist
+	err = s.SetAVTransportURI(playlistURL, "")
+	if err != nil {
+		log.Printf("Failed to set playlist URI: %v", err)
+		http.Error(w, "Failed to set playlist", http.StatusInternalServerError)
+		return
+	}
+	
+	log.Printf("Playlist URI set successfully, starting playback...")
+	
+	// Start playback
+	err = s.Play()
+	if err != nil {
+		log.Printf("Failed to start playback: %v", err)
+		http.Error(w, "Failed to start playback", http.StatusInternalServerError)
+		return
+	}
+	
+	log.Printf("Successfully started playback on %s", speaker.Name)
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Playing\n"))
+	w.Write([]byte(fmt.Sprintf("Playing playlist on %s\n", speaker.Name)))
 }
 
 func pauseHandler(w http.ResponseWriter, r *http.Request) {
