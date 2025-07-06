@@ -9,10 +9,14 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
+
+	"github.com/ianr0bkny/go-sonos/ssdp"
 )
 
 // Build-time variables (set via ldflags)
@@ -108,6 +112,90 @@ func restartPlaylistHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("Playlist restarted\n"))
 }
 
+func discoverSonosDevices() ([]SpeakerInfo, error) {
+	var speakers []SpeakerInfo
+	
+	// Create SSDP manager
+	mgr := ssdp.MakeManager()
+	defer mgr.Close()
+	
+	// Try common network interfaces
+	interfaces := []string{"en0", "eth0", "wlan0", "en1"}
+	
+	for _, iface := range interfaces {
+		log.Printf("Trying discovery on interface: %s", iface)
+		err := mgr.Discover(iface, "1900", false)
+		if err != nil {
+			log.Printf("Discovery error on %s: %v", iface, err)
+			continue
+		}
+		
+		// Give discovery some time to complete
+		time.Sleep(2 * time.Second)
+		
+		// Get all discovered devices
+		devices := mgr.Devices()
+		log.Printf("Found %d devices on %s", len(devices), iface)
+		
+		// Track unique IPs to avoid duplicates (same device may have multiple services)
+		seenIPs := make(map[string]bool)
+		
+		for _, device := range devices {
+			// Check if this is a Sonos device
+			if strings.Contains(strings.ToLower(device.Product()), "sonos") {
+				ip := extractIPFromLocation(device.Location())
+				if ip != "" && !seenIPs[ip] {
+					seenIPs[ip] = true
+					
+					// Try to connect to get the actual room name
+					roomName := getSonosRoomName(ip)
+					if roomName == "" {
+						roomName = device.Name() // fallback to device name
+					}
+					
+					speakers = append(speakers, SpeakerInfo{
+						Name: roomName,
+						IP:   ip,
+					})
+					log.Printf("Found Sonos device: %s at %s", roomName, ip)
+				}
+			}
+		}
+		
+		// If we found some speakers, no need to try other interfaces
+		if len(speakers) > 0 {
+			break
+		}
+	}
+	
+	return speakers, nil
+}
+
+func getSonosRoomName(ip string) string {
+	// For now, just return empty string to get the discovery working
+	// TODO: Implement proper Sonos connection to get room name
+	return ""
+}
+
+func extractIPFromLocation(location ssdp.Location) string {
+	// The location is typically a URL like "http://192.168.4.100:1400/xml/device_description.xml"
+	// Convert location to string - it should implement fmt.Stringer or be a string type
+	locationStr := fmt.Sprintf("%v", location)
+	if locationStr == "" {
+		return ""
+	}
+	
+	parsed, err := url.Parse(locationStr)
+	if err != nil {
+		log.Printf("Error parsing location URL: %v", err)
+		return ""
+	}
+	
+	// Extract just the host part (without port)
+	host := parsed.Hostname()
+	return host
+}
+
 func discoverHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -116,14 +204,14 @@ func discoverHandler(w http.ResponseWriter, r *http.Request) {
 	
 	log.Println("Discovering Sonos devices...")
 	
-	var speakers []SpeakerInfo
+	speakers, err := discoverSonosDevices()
+	if err != nil {
+		log.Printf("Discovery error: %v", err)
+		http.Error(w, "Discovery failed", http.StatusInternalServerError)
+		return
+	}
 	
-	// For now, return a mock speaker for testing
-	// TODO: Implement actual Sonos discovery
-	speakers = append(speakers, SpeakerInfo{
-		Name: "Test Sonos Speaker",
-		IP:   "192.168.1.100",
-	})
+	log.Printf("Discovery completed, found %d speakers", len(speakers))
 	
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(speakers)

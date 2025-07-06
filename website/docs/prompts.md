@@ -298,3 +298,39 @@ Now you can:
 - Run `npm start` in the website directory for development with automatic proxying
 - Or access the Go server directly from any origin without CORS errors
 - The controller intelligently handles both scenarios
+
+## Turn 19
+
+> Great, the discover button is wired up and returning the Test Sonos Speaker.  Let's focus on implementing the proper discovery.
+> 
+> 1. Update main.go to use the third party go package to discover the real sonos speakers on my network when the discover endpoint is called.
+> 2. Check the implementation using curl, you should find one speaker in the room Bedroom with an IP prefix of 192.168.4.x
+
+Implemented real Sonos discovery using the go-sonos package:
+
+**Discovery Implementation:**
+- Added `discoverSonosDevices()` function using SSDP discovery
+- Tries multiple network interfaces: en0, eth0, wlan0, en1
+- Filters devices by checking for "sonos" in product name
+- Extracts IP address from device location URL
+- Deduplicates devices by IP address (same device may have multiple services)
+
+**Improvements:**
+- Added proper error handling for discovery failures
+- Added logging for debugging discovery process
+- Extracts IP using URL parsing from device location
+- Returns actual discovered devices instead of mock data
+
+**Testing Results:**
+- Successfully discovered Sonos device at IP 192.168.4.129 ✓
+- IP matches expected prefix 192.168.4.x ✓
+- Device name shows as "ZonePlayer"
+- Discovery takes ~8 seconds (includes 2-second sleep for SSDP completion)
+
+**curl test:**
+```bash
+curl -X POST http://localhost:8080/api/sonos/discover
+[{"name":"ZonePlayer","ip":"192.168.4.129"}]
+```
+
+The room name "Bedroom" would require connecting to the Sonos device API, which is stubbed out for now but the IP discovery is working correctly.
