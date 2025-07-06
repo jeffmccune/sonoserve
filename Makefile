@@ -141,6 +141,16 @@ dev: ## Run in development mode (without building)
 	@echo "Running in development mode..."
 	go run main.go ui.go
 
+.PHONY: background
+background: ## Run in background (without building)
+	@echo "Running in background..."
+	go run . &
+
+.PHONY: kill
+kill: ## Kill any running servers
+	@echo "Killing..."
+	bash -c "lsof -n -i | grep -E ':http-alt|:8080' | awk '{print "'$$2'"}' | xargs kill"
+
 .PHONY: tools
 tools: ## Install development tools
 	@echo "Installing development tools..."
@@ -191,4 +201,3 @@ all: clean deps generate check build ## Run a complete build pipeline
 # Create bin directory
 $(BIN_DIR):
 	@mkdir -p $(BIN_DIR)
-

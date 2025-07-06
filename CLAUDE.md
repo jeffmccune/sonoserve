@@ -62,3 +62,8 @@ The system uses a client-server model where the CardPuter sends HTTP requests to
 - Remember to commit after updating prompts.
 - Remember to update ./website/docs/prompts.md after every turn in the conversation, especially after context is compacted
 - Remember to commit prompts.md after every turn in the conversation
+- Remember to stop the server using Bash(make kill) then wait 1 second to proceed.
+
+## Server Startup
+
+- Remember to start the server using Bash(make background) the server will start in the background. Wait until you see "Startup discovery completed" to proceed after starting.
