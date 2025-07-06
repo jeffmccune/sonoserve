@@ -236,7 +236,8 @@ func playHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	
 	// Set the AV Transport URI to our playlist
-	err = s.SetAVTransportURI(playlistURL, "")
+	// SetAVTransportURI requires (instanceID, currentURI, currentURIMetaData)
+	err = s.SetAVTransportURI(0, playlistURL, "")
 	if err != nil {
 		log.Printf("Failed to set playlist URI: %v", err)
 		http.Error(w, "Failed to set playlist", http.StatusInternalServerError)
@@ -246,7 +247,8 @@ func playHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Playlist URI set successfully, starting playback...")
 	
 	// Start playback
-	err = s.Play()
+	// Play requires (instanceID, speed)
+	err = s.Play(0, "1")
 	if err != nil {
 		log.Printf("Failed to start playback: %v", err)
 		http.Error(w, "Failed to start playback", http.StatusInternalServerError)

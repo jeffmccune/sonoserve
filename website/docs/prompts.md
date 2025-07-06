@@ -609,3 +609,25 @@ Implemented complete music playback functionality:
 - ✅ Docusaurus website builds successfully with new UI controls
 
 The system now provides end-to-end music playback: dynamic playlist generation → speaker selection → Sonos playback control.
+
+## Turn 32
+
+> The make build task doesn't compile, please run it and fix the error you see.  Take care to change directories to the root of the repository when you run the make build task.
+
+Fixed compilation errors in the go-sonos library method calls:
+
+**Compilation Errors Found:**
+- `s.SetAVTransportURI(playlistURL, "")` - missing instanceID parameter
+- `s.Play()` - missing instanceID and speed parameters
+
+**Fixes Applied:**
+- Updated `s.SetAVTransportURI(0, playlistURL, "")` - added instanceID=0
+- Updated `s.Play(0, "1")` - added instanceID=0 and speed="1"
+- Added comments explaining the required parameters
+
+**Testing Results:**
+- ✅ `make build` now compiles successfully
+- ✅ Generated executable at `bin/sonoserve` (13.6MB)
+- ✅ Website generation works properly during build process
+
+The go-sonos library requires instanceID (usually 0 for single-zone operations) and speed parameter for Play method calls.
