@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -46,6 +47,71 @@ type Speaker struct {
 
 // Global cache of discovered speakers
 var speakerCache = make(map[string]Speaker)
+
+// Global variables for server configuration
+var resourceHost string
+
+// getLocalIP returns the local network IP address (non-loopback)
+func getLocalIP() string {
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		log.Printf("Error getting network interfaces: %v", err)
+		return "localhost"
+	}
+
+	for _, iface := range interfaces {
+		// Skip loopback and down interfaces
+		if iface.Flags&net.FlagLoopback != 0 || iface.Flags&net.FlagUp == 0 {
+			continue
+		}
+
+		addrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+
+		for _, addr := range addrs {
+			ipNet, ok := addr.(*net.IPNet)
+			if !ok {
+				continue
+			}
+
+			// We want IPv4 addresses that are not loopback
+			if ipNet.IP.To4() != nil && !ipNet.IP.IsLoopback() {
+				// Prefer private network addresses
+				if ipNet.IP.IsPrivate() {
+					return ipNet.IP.String()
+				}
+			}
+		}
+	}
+
+	// Fallback: try to find any non-loopback IPv4 address
+	for _, iface := range interfaces {
+		if iface.Flags&net.FlagLoopback != 0 || iface.Flags&net.FlagUp == 0 {
+			continue
+		}
+
+		addrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+
+		for _, addr := range addrs {
+			ipNet, ok := addr.(*net.IPNet)
+			if !ok {
+				continue
+			}
+
+			if ipNet.IP.To4() != nil && !ipNet.IP.IsLoopback() {
+				return ipNet.IP.String()
+			}
+		}
+	}
+
+	log.Println("Warning: Could not determine local IP address, using localhost")
+	return "localhost"
+}
 
 // corsMiddleware adds CORS headers to responses
 func corsMiddleware(next http.Handler) http.Handler {
@@ -114,16 +180,12 @@ func playlistHandler(w http.ResponseWriter, r *http.Request) {
 	
 	log.Println("Generating dynamic playlist...")
 	
-	// Get the server's base URL from the request
+	// Use the configured resource host for external devices to reach us
 	scheme := "http"
 	if r.TLS != nil {
 		scheme = "https"
 	}
-	host := r.Host
-	if host == "" {
-		host = "localhost:8080"
-	}
-	baseURL := fmt.Sprintf("%s://%s", scheme, host)
+	baseURL := fmt.Sprintf("%s://%s", scheme, resourceHost)
 	
 	// Walk the embedded music filesystem to find all MP3 files
 	var songs []string
@@ -204,16 +266,12 @@ func playHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	// Get the server's base URL to construct playlist URL
+	// Get the server's base URL to construct playlist URL using configured resource host
 	scheme := "http"
 	if r.TLS != nil {
 		scheme = "https"
 	}
-	host := r.Host
-	if host == "" {
-		host = "localhost:8080"
-	}
-	playlistURL := fmt.Sprintf("%s://%s/playlist", scheme, host)
+	playlistURL := fmt.Sprintf("%s://%s/playlist", scheme, resourceHost)
 	
 	log.Printf("Attempting to play playlist %s on speaker %s at %s", playlistURL, speaker.Name, speaker.Address)
 	
@@ -456,11 +514,18 @@ func printVersion() {
 }
 
 func main() {
+	// Determine default resource host (IP address for external devices to reach us)
+	defaultResourceHost := getLocalIP() + ":8080"
+	
 	var (
-		showVersion = flag.Bool("version", false, "show version information")
-		addr        = flag.String("addr", ":8080", "server address")
+		showVersion    = flag.Bool("version", false, "show version information")
+		addr           = flag.String("addr", ":8080", "server listen address (interface:port)")
+		resourceHostPtr = flag.String("resource-host", defaultResourceHost, "host:port for external devices to fetch resources from this server")
 	)
 	flag.Parse()
+	
+	// Set global resourceHost variable
+	resourceHost = *resourceHostPtr
 
 	if *showVersion {
 		printVersion()
@@ -471,6 +536,8 @@ func main() {
 	if gitCommit != "unknown" {
 		log.Printf("Git commit: %s", gitCommit)
 	}
+	log.Printf("Listen address: %s", *addr)
+	log.Printf("Resource host: %s", resourceHost)
 
 	// Perform initial Sonos discovery on startup
 	log.Println("Performing initial Sonos discovery...")

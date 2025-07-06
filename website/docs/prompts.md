@@ -631,3 +631,38 @@ Fixed compilation errors in the go-sonos library method calls:
 - ✅ Website generation works properly during build process
 
 The go-sonos library requires instanceID (usually 0 for single-zone operations) and speed parameter for Play method calls.
+
+## Turn 33
+
+> Thanks but the play button fails with "Failed to set playlist URI: 714"  I think this is because we're using localhost and we need to use the IP address on the local network.  Let's fix it by:
+>
+> 1. Add a flag that allows the user to specify the listen address, default to any IPv4 or IPv6 address in a sensible way following the go standard library.  Surely there's a way to figure this address out using the go standard library.
+> 2. Add a second flag that allows the user to specify the host used to tell the speaker to fetch resources from the go server.  This default value should be determined in a similar, but NOT identical way using the Go standard library.  Think hard about how we're listening on "any interface" but we're telling the speaker to get all resources from a specific address.
+> 3. Update both the playlist and play endpoints to use the second flag to fetch resources.
+> 4. Remember to update prompts and commit.
+
+Fixed the localhost playlist URI issue by implementing proper network address handling:
+
+**Network Address Detection:**
+- Added `getLocalIP()` function using Go's `net` package to detect local network IP address
+- Function prefers private network addresses (192.168.x.x, 10.x.x.x, etc.)
+- Falls back to any non-loopback IPv4 address if no private address found
+- Uses proper interface enumeration with `net.Interfaces()` and filtering for up, non-loopback interfaces
+
+**Command Line Flags:**
+- Added `-addr` flag: server listen address (default ":8080" - listens on all interfaces)
+- Added `-resource-host` flag: host:port for external devices to fetch resources (default: detected local IP + ":8080")
+- Proper separation between listen address (where we bind) and resource host (what we tell external devices)
+
+**Updated Endpoints:**
+- Modified `playlistHandler` to use global `resourceHost` instead of `r.Host`
+- Modified `playHandler` to construct playlist URL using `resourceHost`
+- Both endpoints now generate URLs that Sonos speakers can actually reach
+
+**Testing Results:**
+- ✅ Build compiles successfully with new network code
+- ✅ `--help` shows both flags with auto-detected default: `192.168.4.134:8080`
+- ✅ Server logs show both listen address and resource host for clarity
+- ✅ Playlist URLs now use actual network IP instead of localhost
+
+This resolves the "714" error by ensuring Sonos speakers receive playlist URLs they can actually connect to from their network perspective.
