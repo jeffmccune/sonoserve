@@ -4,6 +4,8 @@ import (
 	"context"
 	"embed"
 	"encoding/json"
+	"flag"
+	"fmt"
 	"io/fs"
 	"log"
 	"net/http"
@@ -11,6 +13,14 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+)
+
+// Build-time variables (set via ldflags)
+var (
+	version      = "dev"
+	gitCommit    = "unknown"
+	gitTreeState = "unknown"
+	buildDate    = "unknown"
 )
 
 //go:embed all:music
@@ -103,16 +113,39 @@ func discoverHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(speakers)
 }
 
+func printVersion() {
+	fmt.Printf("sonoserve version %s\n", version)
+	fmt.Printf("  git commit: %s\n", gitCommit)
+	fmt.Printf("  git tree state: %s\n", gitTreeState)
+	fmt.Printf("  build date: %s\n", buildDate)
+}
+
 func main() {
+	var (
+		showVersion = flag.Bool("version", false, "show version information")
+		addr        = flag.String("addr", ":8080", "server address")
+	)
+	flag.Parse()
+
+	if *showVersion {
+		printVersion()
+		os.Exit(0)
+	}
+
+	log.Printf("Starting sonoserve %s", version)
+	if gitCommit != "unknown" {
+		log.Printf("Git commit: %s", gitCommit)
+	}
+
 	mux := setupRoutes()
 
 	srv := &http.Server{
-		Addr:    ":8080",
+		Addr:    *addr,
 		Handler: mux,
 	}
 
 	go func() {
-		log.Printf("Starting server on %s", srv.Addr)
+		log.Printf("Server listening on %s", srv.Addr)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Server failed to start: %v", err)
 		}

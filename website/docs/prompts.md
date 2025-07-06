@@ -168,3 +168,43 @@ Added comprehensive test coverage for all endpoints:
 - Tests validate both success and error cases
 - Tests verify HTTP methods, status codes, response bodies, and headers
 - Coverage includes embedded file serving functionality
+
+## Turn 13
+
+> Thanks, add a Makefile similar to the one used in github.com/holos-run/holos to build the go executable.
+
+Added comprehensive Makefile inspired by holos project:
+
+**Build System Features:**
+- Dynamic version handling from git (tags, commit hash, tree state, build date)
+- Cross-compilation support for multiple platforms
+- Embedded build metadata via ldflags
+- Build directory management
+
+**Key Targets:**
+- `make build` - Build executable with version info
+- `make test` - Run tests  
+- `make clean` - Remove build artifacts
+- `make fmt` - Format Go code
+- `make lint` - Run linters (vet + golangci-lint)
+- `make version` - Show version and build info
+- `make help` - Show all available targets
+
+**Development Targets:**
+- `make dev` - Run without building
+- `make debug` - Build with race detection
+- `make website-build` - Build Docusaurus site
+- `make website-dev` - Start dev server
+- `make tools` - Install development tools
+
+**Enhanced main.go:**
+- Added version variables for ldflags injection
+- Added `-version` flag to show build information
+- Added `-addr` flag to configure server address
+- Enhanced startup logging with version info
+
+**Testing:**
+- `make test` runs all tests successfully
+- `make version` shows: f7edc62-dirty, commit hash, build date, Go version
+- `./build/sonoserve -version` displays version information
+- All build targets create proper executables
