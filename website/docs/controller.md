@@ -55,10 +55,23 @@ Get the current list of discovered speakers or refresh by discovering new ones:
         .then(speakers => {
           if (speakers.length === 0) {
             list.innerHTML = '<em>No speakers in cache. Click "Refresh Speakers" to discover speakers.</em>';
+            document.getElementById('speakerSelection').innerHTML = '<em>No speakers available. Please refresh speakers first.</em>';
           } else {
             list.innerHTML = '<h4>Cached Speakers:</h4><ul>' + 
               speakers.map(speaker => `<li>${speaker.name} (${speaker.room}) - ${speaker.address}</li>`).join('') + 
               '</ul>';
+            
+            // Update speaker selection radio buttons
+            const speakerSelection = document.getElementById('speakerSelection');
+            speakerSelection.innerHTML = '<h4>Select Speaker:</h4>' + 
+              speakers.map((speaker, index) => 
+                `<div style="margin: 8px 0;">
+                  <input type="radio" id="speaker${index}" name="speaker" value="${speaker.name}" ${index === 0 ? 'checked' : ''} />
+                  <label for="speaker${index}" style="margin-left: 8px; cursor: pointer;">
+                    ${speaker.name} (${speaker.room})
+                  </label>
+                </div>`
+              ).join('');
           }
         })
         .catch(error => {
@@ -100,10 +113,23 @@ Get the current list of discovered speakers or refresh by discovering new ones:
         .then(speakers => {
           if (speakers.length === 0) {
             list.innerHTML = '<em>No speakers found. Make sure your Sonos devices are on the same network.</em>';
+            document.getElementById('speakerSelection').innerHTML = '<em>No speakers found.</em>';
           } else {
             list.innerHTML = '<h4>Found Speakers:</h4><ul>' + 
               speakers.map(speaker => `<li>${speaker.name} - ${speaker.ip}</li>`).join('') + 
               '</ul>';
+            
+            // Update speaker selection radio buttons
+            const speakerSelection = document.getElementById('speakerSelection');
+            speakerSelection.innerHTML = '<h4>Select Speaker:</h4>' + 
+              speakers.map((speaker, index) => 
+                `<div style="margin: 8px 0;">
+                  <input type="radio" id="speaker${index}" name="speaker" value="${speaker.name}" ${index === 0 ? 'checked' : ''} />
+                  <label for="speaker${index}" style="margin-left: 8px; cursor: pointer;">
+                    ${speaker.name}
+                  </label>
+                </div>`
+              ).join('');
           }
         })
         .catch(error => {
@@ -123,27 +149,64 @@ Get the current list of discovered speakers or refresh by discovering new ones:
   <em>No speakers discovered yet. Click the button above to search.</em>
 </div>
 
+## Speaker Selection
+
+Select which speaker to control:
+
+<div id="speakerSelection" style={{marginTop: '20px', marginBottom: '20px', padding: '15px', border: '1px solid #ddd', borderRadius: '4px'}}>
+  <em>Load speakers first using the "Get Speakers" button above to see available speakers.</em>
+</div>
+
 ## Music Controls
 
 <div style={{marginTop: '30px'}}>
   <button 
     onClick={() => {
+      const selectedSpeaker = document.querySelector('input[name="speaker"]:checked');
+      if (!selectedSpeaker) {
+        alert('Please select a speaker first');
+        return;
+      }
+      
       const server = document.getElementById('serverInput').value || 'localhost:8080';
       const url = (window.location.host === server) 
         ? '/sonos/play' 
         : `http://${server}/sonos/play`;
-      fetch(url, {method: 'POST'})
+      
+      const playButton = document.querySelector('button[data-action="play"]');
+      playButton.disabled = true;
+      playButton.textContent = '⏳ Starting...';
+      
+      fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          speaker: selectedSpeaker.value
+        })
+      })
         .then(response => {
           if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
           }
+          return response.text();
+        })
+        .then(result => {
+          console.log('Play result:', result);
+          alert(`✅ ${result}`);
         })
         .catch(error => {
           console.error('Play error:', error);
-          alert(`Failed to play: ${error.message}`);
+          alert(`❌ Failed to play: ${error.message}`);
+        })
+        .finally(() => {
+          playButton.disabled = false;
+          playButton.textContent = '▶️ Play';
         });
     }} 
     style={{marginRight: '10px'}}
+    data-action="play"
   >
     ▶️ Play
   </button>

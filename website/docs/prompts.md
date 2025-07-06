@@ -568,3 +568,44 @@ Committed all changes including the updated prompts.md file with the missing con
 > You did not update prompts.md after I told you to commit in the last turn, add that prompt and this prompt then commit again.
 
 Added the missing prompts from turns 29 and 30 to prompts.md and committing the changes.
+
+## Turn 31
+
+> Great thank you.  Going forward, don't forget to update prompts and commit.  Now let's focus on the task of getting the music to play.
+>
+> 1. We're going to implement this by adding a new endpoint to generate a playlist of all the embedded mp3 files and serve it at an endpoint named playlist.  The play endpoint will tell the sonos speaker to play the dynamically generated playlist, then the speaker will get each song in turn from the go server.
+> 2. Add the playlist endpoint that returns a simple mp3 playlist using http URIs referencing each embedded song.  This must be dynamic, do not hard code any song names into the code.  Walk the embedded filesystem to construct the playlist.
+> 3. Ensure the songs are properly served at the same URIs included in the mp3 playlist.
+> 4. Implement the playHandler to accept a speaker name as a string and play the playlist on that speaker.
+> 5. Update the controller.md file to create a list of radio buttons to select the speaker to play the playlist on.  Get the list of speakers from the cache endpoint, not the discovery refresh endpoint.
+> 6. Update the controller.md file play button to call the play endpoint with the selected speaker name.
+
+Implemented complete music playback functionality:
+
+**Playlist Generation:**
+- Added `/playlist` GET endpoint that dynamically generates M3U playlists
+- Uses `fs.WalkDir()` to find all MP3 files in embedded filesystem
+- Constructs HTTP URLs automatically based on request host
+- Returns proper M3U format with `#EXTM3U` header and `#EXTINF` entries
+
+**Enhanced Play Handler:**
+- Updated `playHandler` to accept JSON request with speaker name
+- Validates speaker exists in cache before attempting playback
+- Connects to Sonos device using UPnP and go-sonos library
+- Sets playlist URL using `SetAVTransportURI()` and starts playback with `Play()`
+- Provides detailed error handling and logging
+
+**Controller UI Enhancements:**
+- Added "Speaker Selection" section with radio buttons
+- Both "Get Speakers" and "Refresh Speakers" buttons populate radio button list
+- Updated play button to require speaker selection before proceeding
+- Play button sends JSON request with selected speaker name
+- Added loading states and user-friendly success/error messages
+
+**Testing Results:**
+- ✅ `/playlist` endpoint generates: `#EXTM3U` with `http://localhost:8080/music/sample.mp3`
+- ✅ MP3 files properly served with correct MIME types
+- ✅ Speaker cache integration works with radio button population
+- ✅ Docusaurus website builds successfully with new UI controls
+
+The system now provides end-to-end music playback: dynamic playlist generation → speaker selection → Sonos playback control.
