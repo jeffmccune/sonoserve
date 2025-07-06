@@ -699,3 +699,44 @@ Fixed the "714 illegal MIME-Type" error by implementing proper Sonos queue-based
 - Proper error handling for each queue operation
 
 This follows the documented go-sonos library patterns and should resolve the MIME-Type error by using Sonos-native queue management instead of external playlists.
+
+## Turn 35
+
+> Read the TODO.md file and fix the Inteface Discovery Panic item please.
+
+Fixed the Interface Discovery Panic by implementing dynamic network interface detection:
+
+**Problem Analysis:**
+- Code was using hardcoded interface names: `["en0", "eth0", "wlan0", "en1"]`
+- macOS uses "en0", "en1" but not "eth0" or "wlan0"
+- Linux typically uses "eth0", "wlan0" but not "en0"
+- Windows uses different naming conventions entirely
+- Hardcoded approach caused `panic: route ip+net: no such network interface`
+
+**Solution Implemented:**
+- Use Go standard library `net.Interfaces()` to discover all available network interfaces
+- Filter interfaces using proper criteria:
+  - Skip loopback interfaces (`net.FlagLoopback`)
+  - Skip down/inactive interfaces (`net.FlagUp`)
+  - Only include interfaces with IPv4 addresses
+  - Check each interface's addresses using `iface.Addrs()`
+
+**Technical Implementation:**
+- `net.Interfaces()` returns all system network interfaces
+- Filter by flags: `iface.Flags&net.FlagLoopback == 0` and `iface.Flags&net.FlagUp != 0`
+- Validate IPv4 presence: `ipNet.IP.To4() != nil`
+- Build dynamic interface name list instead of hardcoded array
+- Enhanced logging: "Found X suitable network interfaces: [list]"
+
+**Cross-Platform Compatibility:**
+- ✅ **macOS**: Discovers "en0", "en1", etc. automatically
+- ✅ **Linux**: Discovers "eth0", "wlan0", etc. automatically  
+- ✅ **Windows**: Discovers Windows interface names automatically
+- ✅ **Any OS**: Uses Go standard library for maximum compatibility
+
+**Error Handling:**
+- Returns descriptive error if `net.Interfaces()` fails
+- Returns error if no suitable interfaces found
+- Individual interface discovery errors are logged but don't stop the process
+
+This eliminates the hardcoded interface dependency and makes speaker discovery robust across all operating systems.

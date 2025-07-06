@@ -397,10 +397,46 @@ func discoverSonosDevices() ([]SpeakerInfo, error) {
 	mgr := ssdp.MakeManager()
 	defer mgr.Close()
 	
-	// Try common network interfaces
-	interfaces := []string{"en0", "eth0", "wlan0", "en1"}
+	// Get all available network interfaces using Go standard library
+	netInterfaces, err := net.Interfaces()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get network interfaces: %v", err)
+	}
 	
-	for _, iface := range interfaces {
+	// Filter for suitable interfaces and extract names
+	var interfaceNames []string
+	for _, iface := range netInterfaces {
+		// Skip loopback and down interfaces
+		if iface.Flags&net.FlagLoopback != 0 || iface.Flags&net.FlagUp == 0 {
+			continue
+		}
+		
+		// Check if interface has IPv4 addresses
+		addrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+		
+		hasIPv4 := false
+		for _, addr := range addrs {
+			if ipNet, ok := addr.(*net.IPNet); ok && ipNet.IP.To4() != nil {
+				hasIPv4 = true
+				break
+			}
+		}
+		
+		if hasIPv4 {
+			interfaceNames = append(interfaceNames, iface.Name)
+		}
+	}
+	
+	if len(interfaceNames) == 0 {
+		return nil, fmt.Errorf("no suitable network interfaces found")
+	}
+	
+	log.Printf("Found %d suitable network interfaces: %v", len(interfaceNames), interfaceNames)
+	
+	for _, iface := range interfaceNames {
 		log.Printf("Trying discovery on interface: %s", iface)
 		err := mgr.Discover(iface, "1900", false)
 		if err != nil {

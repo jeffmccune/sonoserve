@@ -6,9 +6,33 @@ sidebar_position: 4
 
 Technical debt items to address in the future.
 
+## Interface Discovery Panic
+
+- [x] Fix Interface Discovery Panic - FIXED
+
+The following error needs to be fixed by making interface discovery more robust.  Do not hard code interface names.  Use the go standard library to determine network interfaces, if necessary.  Consider users on Linux and Windows.
+
+```
+2025/07/06 16:33:40 Found 2 devices on en0
+2025/07/06 16:33:40 Trying discovery on interface: eth0
+panic: route ip+net: no such network interface
+
+goroutine 22 [running]:
+github.com/ianr0bkny/go-sonos/ssdp.(*ssdpDefaultManager).ssdpDiscoverImpl(0x1400007c060, {0x1052b0934?, 0x2?}, {0x1052b0938, 0x4}, 0x0)
+        /Users/jeff/go/pkg/mod/github.com/ianr0bkny/go-sonos@v0.0.0-20171025003233-056585059953/ssdp/ssdp.go:934 +0xec
+github.com/ianr0bkny/go-sonos/ssdp.(*ssdpDefaultManager).Discover(...)
+        /Users/jeff/go/pkg/mod/github.com/ianr0bkny/go-sonos@v0.0.0-20171025003233-056585059953/ssdp/ssdp.go:350
+main.discoverSonosDevices()
+        /Users/jeff/esp/sonoserve/main.go:405 +0x3a0
+main.main.func1()
+        /Users/jeff/esp/sonoserve/main.go:597 +0x20
+created by main.main in goroutine 1
+        /Users/jeff/esp/sonoserve/main.go:596 +0x42c
+```
+
 ## Build System
 
-- [ ] Fix Makefile warnings: "warning: overriding commands for target 'build'" - These warnings are technical debt but not important now
+- [x] Fix Makefile warnings: "warning: overriding commands for target 'build'" - These warnings are technical debt but not important now
 
 ## Get Speaker Name Panic
 
