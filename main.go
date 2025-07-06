@@ -73,7 +73,7 @@ func setupRoutes() *http.ServeMux {
 	mux.Handle("/music/", http.StripPrefix("/music/", http.FileServer(http.FS(musicSubFS))))
 
 	// Serve embedded website
-	websiteSubFS, err := fs.Sub(websiteFS, "website/build")
+	websiteSubFS, err := fs.Sub(websiteFS, "build")
 	if err != nil {
 		log.Fatalf("Failed to create website sub filesystem: %v", err)
 	}

@@ -1,10 +1,8 @@
-//go:generate go run website/generate.go
-
 package main
 
 import (
-	"embed"
+	"github.com/jeffmccune/sonoserve/website"
 )
 
-//go:embed all:website/build
-var websiteFS embed.FS
+// Use the embedded website from the website package
+var websiteFS = website.EmbeddedFS

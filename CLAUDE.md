@@ -60,3 +60,5 @@ The system uses a client-server model where the CardPuter sends HTTP requests to
 ## Reminders
 
 - Remember to commit after updating prompts.
+- Remember to update ./website/docs/prompts.md after every turn in the conversation, especially after context is compacted
+- Remember to commit prompts.md after every turn in the conversation
