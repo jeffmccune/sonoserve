@@ -70,6 +70,30 @@ const config: Config = {
     ],
   ],
 
+  plugins: [
+    function (context, options) {
+      return {
+        name: 'docusaurus-plugin-proxy',
+        configureWebpack(config, isServer, utils) {
+          return {
+            devServer: {
+              proxy: {
+                '/api': {
+                  target: 'http://localhost:8080',
+                  changeOrigin: true,
+                },
+                '/sonos': {
+                  target: 'http://localhost:8080',
+                  changeOrigin: true,
+                },
+              },
+            },
+          };
+        },
+      };
+    },
+  ],
+
   themeConfig: {
     // Replace with your project's social card
     image: 'img/docusaurus-social-card.jpg',

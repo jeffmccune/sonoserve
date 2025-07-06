@@ -41,7 +41,12 @@ Click the button below to discover Sonos speakers on your network:
       button.textContent = 'Discovering...';
       list.innerHTML = '<em>Searching for speakers...</em>';
       
-      fetch(`http://${server}/api/sonos/discover`, { method: 'POST' })
+      // Use relative URL if we're on the same host (development mode with proxy)
+      const url = (window.location.host === server) 
+        ? '/api/sonos/discover' 
+        : `http://${server}/api/sonos/discover`;
+      
+      fetch(url, { method: 'POST' })
         .then(response => {
           if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -80,7 +85,10 @@ Click the button below to discover Sonos speakers on your network:
   <button 
     onClick={() => {
       const server = document.getElementById('serverInput').value || 'localhost:8080';
-      fetch(`http://${server}/sonos/play`, {method: 'POST'})
+      const url = (window.location.host === server) 
+        ? '/sonos/play' 
+        : `http://${server}/sonos/play`;
+      fetch(url, {method: 'POST'})
         .then(response => {
           if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -98,7 +106,10 @@ Click the button below to discover Sonos speakers on your network:
   <button 
     onClick={() => {
       const server = document.getElementById('serverInput').value || 'localhost:8080';
-      fetch(`http://${server}/sonos/pause`, {method: 'POST'})
+      const url = (window.location.host === server) 
+        ? '/sonos/pause' 
+        : `http://${server}/sonos/pause`;
+      fetch(url, {method: 'POST'})
         .then(response => {
           if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -116,7 +127,10 @@ Click the button below to discover Sonos speakers on your network:
   <button 
     onClick={() => {
       const server = document.getElementById('serverInput').value || 'localhost:8080';
-      fetch(`http://${server}/sonos/restart-playlist`, {method: 'POST'})
+      const url = (window.location.host === server) 
+        ? '/sonos/restart-playlist' 
+        : `http://${server}/sonos/restart-playlist`;
+      fetch(url, {method: 'POST'})
         .then(response => {
           if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);

@@ -271,3 +271,30 @@ Updated the Speaker Controller page:
 - Started server with `make dev`
 - Confirmed discovery endpoint returns mock speaker data
 - All buttons now properly use the configured server address
+
+## Turn 18
+
+> The browser gets a CORS error when making the discovery API call.  Please update the docusaurus config such that I can run use npm to run the docusaurus dev server and also make requests to a different host and port where the Go executable is running.
+
+Fixed CORS issues with two approaches:
+
+**1. Docusaurus Development Proxy:**
+- Added custom plugin to proxy `/api` and `/sonos` paths to `http://localhost:8080`
+- Works automatically when using `npm start` for development
+- No CORS issues when using the proxy
+
+**2. CORS Middleware in Go Server:**
+- Added `corsMiddleware` function that sets CORS headers
+- Allows requests from any origin (`*`)
+- Handles preflight OPTIONS requests
+- Applied to all routes via `corsMiddleware(mux)`
+
+**3. Smart URL Handling in Controller:**
+- Updated all fetch calls to use relative URLs when on same host
+- Falls back to absolute URLs with protocol when accessing different hosts
+- Works seamlessly with both development proxy and production deployments
+
+Now you can:
+- Run `npm start` in the website directory for development with automatic proxying
+- Or access the Go server directly from any origin without CORS errors
+- The controller intelligently handles both scenarios
