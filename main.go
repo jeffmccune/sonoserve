@@ -79,6 +79,7 @@ func setupRoutes() *http.ServeMux {
 	}
 	mux.Handle("/ui/", http.StripPrefix("/ui/", http.FileServer(http.FS(websiteSubFS))))
 
+	mux.HandleFunc("/", rootRedirectHandler)
 	mux.HandleFunc("/health", healthHandler)
 	mux.HandleFunc("/sonos/play", playHandler)
 	mux.HandleFunc("/sonos/pause", pauseHandler)
@@ -87,6 +88,15 @@ func setupRoutes() *http.ServeMux {
 	mux.HandleFunc("/api/sonos/speakers", speakersHandler)
 
 	return mux
+}
+
+func rootRedirectHandler(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/" {
+		http.Redirect(w, r, "/ui/docs/controller", http.StatusTemporaryRedirect)
+		return
+	}
+	// For any other root-level path, return 404
+	http.NotFound(w, r)
 }
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {

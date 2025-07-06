@@ -427,3 +427,32 @@ Fixed Docusaurus base URL consistency across dev and production modes:
 - No more base URL mismatches between different deployment modes
 
 The website is now consistently accessible at `/ui/` in both environments.
+
+## Turn 23
+
+> Good but you also need to fix the redirect from / to the prompts page.
+> 
+> 1. Redirect / to the controller page (instead of the prompts page) for the docusaurus site.
+> 2. Perform the same redirect for the Go server, redirecting to the controller page with the base url of /ui/
+
+Fixed redirects to point to the controller page instead of prompts:
+
+**Docusaurus Changes:**
+- Updated `website/src/pages/index.tsx` to redirect from `/` to `/docs/controller` 
+- Changed `history.push('/docs/prompts')` to `history.push('/docs/controller')`
+
+**Go Server Changes:**
+- Added `rootRedirectHandler()` function to handle root path redirects
+- Redirects `http://localhost:8080/` → `http://localhost:8080/ui/docs/controller`
+- Uses `http.StatusTemporaryRedirect` (307) for proper redirect behavior
+- Returns 404 for any other root-level paths
+
+**Testing Results:**
+- ✅ **Go server**: `curl -I http://localhost:8080/` returns `Location: /ui/docs/controller`
+- ✅ **Docusaurus**: Both dev and production modes redirect to controller page
+- ✅ **Base URL consistency**: All redirects properly use `/ui/` base path
+
+**Implementation:**
+- Both development and production deployments now default to the Speaker Controller page
+- Users accessing the root URL are automatically directed to the most relevant interface
+- Maintains proper HTTP redirect semantics with 307 status code
