@@ -5,7 +5,7 @@ export default function Home() {
   const history = useHistory();
   
   useEffect(() => {
-    history.push('/docs/controller');
+    history.push('/ui/docs/controller');
   }, [history]);
   
   return null;
