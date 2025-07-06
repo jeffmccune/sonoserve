@@ -56,3 +56,7 @@ The system uses a client-server model where the CardPuter sends HTTP requests to
 - No authentication implemented
 - No configuration management system
 - No tests written yet
+
+## Reminders
+
+- Remember to commit after updating prompts.
