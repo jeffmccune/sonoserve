@@ -1,6 +1,9 @@
 # Claude settings
 .claude/
 
+# Build output
+bin/
+
 # Go binaries
 *.exe
 *.exe~
