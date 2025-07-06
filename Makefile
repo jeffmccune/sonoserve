@@ -40,13 +40,16 @@ help: ## Show this help message
 	@echo "Targets:"
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-15s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-.PHONY: build
-build: generate $(BUILD_DIR) ## Build the executable
+.PHONY: compile
+compile: website-build $(BUILD_DIR) ## Build the executable
 	@echo "Building $(BINARY_NAME) for $(OS)/$(ARCH)..."
 	CGO_ENABLED=$(CGO_ENABLED) GOOS=$(OS) GOARCH=$(ARCH) go build \
 		-ldflags "$(LDFLAGS)" \
 		-o $(BUILD_DIR)/$(BINARY_NAME) \
 		$(MAIN_PACKAGE)
+
+.PHONY: build
+build: compile ## Build the executable (alias)
 
 .PHONY: debug
 debug: $(BUILD_DIR) ## Build debug version with race detection
@@ -154,13 +157,13 @@ tools: ## Install development tools
 	fi
 
 .PHONY: cross-compile
-cross-compile: ## Build for multiple platforms
+cross-compile: website-build $(BUILD_DIR) ## Build for multiple platforms
 	@echo "Cross-compiling for multiple platforms..."
 	@mkdir -p $(DIST_DIR)
-	GOOS=linux GOARCH=amd64 make build && mv $(BUILD_DIR)/$(BINARY_NAME) $(DIST_DIR)/$(BINARY_NAME)-linux-amd64
-	GOOS=darwin GOARCH=amd64 make build && mv $(BUILD_DIR)/$(BINARY_NAME) $(DIST_DIR)/$(BINARY_NAME)-darwin-amd64
-	GOOS=darwin GOARCH=arm64 make build && mv $(BUILD_DIR)/$(BINARY_NAME) $(DIST_DIR)/$(BINARY_NAME)-darwin-arm64
-	GOOS=windows GOARCH=amd64 make build && mv $(BUILD_DIR)/$(BINARY_NAME) $(DIST_DIR)/$(BINARY_NAME)-windows-amd64.exe
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(DIST_DIR)/$(BINARY_NAME)-linux-amd64 $(MAIN_PACKAGE)
+	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(DIST_DIR)/$(BINARY_NAME)-darwin-amd64 $(MAIN_PACKAGE)
+	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o $(DIST_DIR)/$(BINARY_NAME)-darwin-arm64 $(MAIN_PACKAGE)
+	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(DIST_DIR)/$(BINARY_NAME)-windows-amd64.exe $(MAIN_PACKAGE)
 
 .PHONY: docker-build
 docker-build: ## Build Docker image
