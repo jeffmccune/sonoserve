@@ -556,3 +556,15 @@ Cleaned up the "tangled mess" by refactoring the website embedding:
 - ✅ Clean architecture with proper separation between generation and embedding
 
 The refactoring successfully eliminated the "tangled mess" and uses Go's native generate functionality properly.
+
+## Turn 29
+
+> Commit all changes.
+
+Committed all changes including the updated prompts.md file with the missing conversation turns and the completed website refactoring work.
+
+## Turn 30
+
+> You did not update prompts.md after I told you to commit in the last turn, add that prompt and this prompt then commit again.
+
+Added the missing prompts from turns 29 and 30 to prompts.md and committing the changes.
