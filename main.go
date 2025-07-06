@@ -197,13 +197,6 @@ func discoverSonosDevices() ([]SpeakerInfo, error) {
 func getSonosRoomName(ip string) (string, string) {
 	log.Printf("Getting room name for Sonos device at %s", ip)
 	
-	// Create a manager to discover the device
-	mgr := ssdp.MakeManager()
-	defer mgr.Close()
-	
-	// Create a reactor for UPnP communications
-	reactor := sonos.MakeReactor("en0", "0")
-	
 	// Try to find the device by creating it manually using the known IP
 	locationURL := fmt.Sprintf("http://%s:1400/xml/device_description.xml", ip)
 	
@@ -212,8 +205,9 @@ func getSonosRoomName(ip string) (string, string) {
 		log.Printf("Failed to describe device at %s: %v", ip, err)
 		return "Unknown Room", "Sonos Speaker"
 	} else {
-		// Create Sonos connection with device properties service
-		s := sonos.MakeSonos(svcMap, reactor, sonos.SVC_DEVICE_PROPERTIES)
+		// Create Sonos connection WITHOUT reactor to avoid HTTP handler conflicts
+		// Pass nil reactor and only enable device properties service
+		s := sonos.MakeSonos(svcMap, nil, sonos.SVC_DEVICE_PROPERTIES)
 		if s == nil {
 			log.Printf("Failed to create Sonos connection for %s", ip)
 			return "Unknown Room", "Sonos Speaker"
