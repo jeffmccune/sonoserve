@@ -400,3 +400,30 @@ Added "Get Speakers" functionality and improved UI organization:
 - Better feedback with "No speakers in cache" vs. "No speakers found" messages
 
 The interface now offers both quick cache access and full discovery refresh options.
+
+## Turn 22
+
+> Great thanks. Let's move on to fix the Docusaurus website embedded into the executable. The problem is that we serve the site from / when running in dev mode via npm. But when we access the site using the server we use the base url /ui/
+> 
+> 1. Change the base url to be /ui/ in both dev mode and when built and embedded into the executable.
+> 2. Take care to redirect / to /ui/ when running in dev mode using Bash(npm start)
+
+Fixed Docusaurus base URL consistency across dev and production modes:
+
+**Configuration Changes:**
+- Updated `baseUrl` from `'/'` to `'/ui/'` in `docusaurus.config.ts`
+- Added `historyApiFallback` configuration to redirect root requests to `/ui/` in dev mode
+- Used regex pattern `/^\/(?!ui\/).*/, to: '/ui/'` for proper redirection
+
+**Testing Results:**
+- ✅ **Embedded mode**: `http://localhost:8080/ui/` serves website correctly with proper asset paths
+- ✅ **Dev mode**: `http://localhost:3000/ui/` serves website with correct base URL  
+- ✅ **Root redirect**: `http://localhost:3000/` properly redirects to serve `/ui/` content
+- ✅ **Asset paths**: All CSS, JS, and image assets correctly prefixed with `/ui/`
+
+**Implementation:**
+- Both development (`npm start`) and production (embedded) modes now consistently use `/ui/` base URL
+- Development server automatically redirects root requests to the correct base path
+- No more base URL mismatches between different deployment modes
+
+The website is now consistently accessible at `/ui/` in both environments.

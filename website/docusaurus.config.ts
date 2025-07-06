@@ -23,7 +23,7 @@ const config: Config = {
   url: 'https://your-docusaurus-site.example.com',
   // Set the /<baseUrl>/ pathname under which your site is served
   // For GitHub pages deployment, it is often '/<projectName>/'
-  baseUrl: '/',
+  baseUrl: '/ui/',
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
@@ -77,6 +77,12 @@ const config: Config = {
         configureWebpack(config, isServer, utils) {
           return {
             devServer: {
+              historyApiFallback: {
+                rewrites: [
+                  // Redirect root to /ui/
+                  { from: /^\/(?!ui\/).*/, to: '/ui/' },
+                ],
+              },
               proxy: {
                 '/api': {
                   target: 'http://localhost:8080',
