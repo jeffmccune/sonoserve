@@ -239,3 +239,35 @@ Fixed the `make dev` command in Makefile:
 - This could have caused conflicts or multiple server instances
 - Now explicitly specifies only the required source files
 - Tested and confirmed the server starts successfully on port 8080
+
+## Turn 17
+
+> Great thanks.  Now let's get the discover speakers button working.
+> 
+> 1. Please modify the Speaker Controller page to have an input box at the top to take a hostname and port (authority) with a default value of localhost:8080.
+> 2. Modify the other buttons on the page to make http calls to the host and port specified by the input box.
+
+Updated the Speaker Controller page:
+
+**Added Server Configuration:**
+- Added input field for server hostname and port at the top of the page
+- Default value set to "localhost:8080"
+- Styled with padding, border, and proper spacing
+
+**Modified All HTTP Calls:**
+- Discovery button now uses `http://${server}/api/sonos/discover`
+- Play button uses `http://${server}/sonos/play`
+- Pause button uses `http://${server}/sonos/pause`
+- Restart Playlist uses `http://${server}/sonos/restart-playlist`
+
+**Improvements:**
+- Added error handling to check response.ok before parsing JSON
+- Added user-friendly error alerts for failed operations
+- Console logging for debugging
+- All buttons now dynamically read the server input value
+
+**Testing:**
+- Rebuilt website with `npm run build`
+- Started server with `make dev`
+- Confirmed discovery endpoint returns mock speaker data
+- All buttons now properly use the configured server address
