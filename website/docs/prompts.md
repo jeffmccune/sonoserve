@@ -208,3 +208,24 @@ Added comprehensive Makefile inspired by holos project:
 - `make version` shows: f7edc62-dirty, commit hash, build date, Go version
 - `./build/sonoserve -version` displays version information
 - All build targets create proper executables
+
+## Turn 14
+
+> Great thanks.  Create a TODO document for items we want to circle back to later.  Add a note to fix the warnings in the Makefile in the future, these warnings are technical debt but not important now.
+
+Created TODO.md to track technical debt and future improvements:
+
+**Categories covered:**
+- Build System - Including Makefile warning fix
+- Sonos Integration - Real discovery and control implementation
+- Security & Configuration - Auth, HTTPS, config files
+- CardPuter Integration - ESP32 firmware and hardware
+- Web UI Improvements - React components, real-time updates
+- Testing & Quality - Coverage, integration tests, monitoring
+- Documentation - API docs, user guides, troubleshooting
+- Performance - Caching, compression, profiling
+- Features - Multi-zone, presets, scheduler, parental controls
+- Code Quality - Linting, security scanning, logging
+- Deployment - Service files, Kubernetes, backups
+
+The Makefile warnings about "overriding commands for target 'build'" are noted as technical debt to investigate later, but don't impact functionality currently.
