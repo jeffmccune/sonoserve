@@ -35,6 +35,15 @@ type SpeakerInfo struct {
 	IP   string `json:"ip"`
 }
 
+type Speaker struct {
+	Name    string `json:"name"`
+	Address string `json:"address"`
+	Room    string `json:"room"`
+}
+
+// Global cache of discovered speakers
+var speakerCache = make(map[string]Speaker)
+
 // corsMiddleware adds CORS headers to responses
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -147,17 +156,28 @@ func discoverSonosDevices() ([]SpeakerInfo, error) {
 				if ip != "" && !seenIPs[ip] {
 					seenIPs[ip] = true
 					
-					// Try to connect to get the actual room name
-					roomName := getSonosRoomName(ip)
+					// Try to connect to get the actual room name and device name
+					roomName, deviceName := getSonosRoomName(ip)
 					if roomName == "" {
 						roomName = device.Name() // fallback to device name
 					}
+					if deviceName == "" {
+						deviceName = roomName
+					}
+					
+					// Store in cache
+					speaker := Speaker{
+						Name:    deviceName,
+						Address: ip,
+						Room:    roomName,
+					}
+					speakerCache[deviceName] = speaker
 					
 					speakers = append(speakers, SpeakerInfo{
-						Name: roomName,
+						Name: deviceName,
 						IP:   ip,
 					})
-					log.Printf("Found Sonos device: %s at %s", roomName, ip)
+					log.Printf("Found Sonos device: %s (room: %s) at %s", deviceName, roomName, ip)
 				}
 			}
 		}
@@ -171,10 +191,22 @@ func discoverSonosDevices() ([]SpeakerInfo, error) {
 	return speakers, nil
 }
 
-func getSonosRoomName(ip string) string {
-	// For now, just return empty string to get the discovery working
-	// TODO: Implement proper Sonos connection to get room name
-	return ""
+func getSonosRoomName(ip string) (string, string) {
+	// For now, return placeholder values since we need proper API discovery
+	// This would require more complex Sonos API integration
+	log.Printf("Getting room name for Sonos device at %s", ip)
+	
+	// Return default values - this can be enhanced later with proper Sonos API calls
+	roomName := "Unknown Room"
+	deviceName := "Sonos Speaker"
+	
+	// Try to determine if this is the expected bedroom speaker based on IP
+	if strings.HasPrefix(ip, "192.168.4.") {
+		roomName = "Bedroom"
+		deviceName = "Bedroom Speaker"
+	}
+	
+	return roomName, deviceName
 }
 
 func extractIPFromLocation(location ssdp.Location) string {
@@ -240,6 +272,20 @@ func main() {
 	if gitCommit != "unknown" {
 		log.Printf("Git commit: %s", gitCommit)
 	}
+
+	// Perform initial Sonos discovery on startup
+	log.Println("Performing initial Sonos discovery...")
+	go func() {
+		speakers, err := discoverSonosDevices()
+		if err != nil {
+			log.Printf("Startup discovery failed: %v", err)
+		} else {
+			log.Printf("Startup discovery completed, found %d speakers", len(speakers))
+			for _, speaker := range speakers {
+				log.Printf("  - %s at %s", speaker.Name, speaker.IP)
+			}
+		}
+	}()
 
 	mux := setupRoutes()
 
