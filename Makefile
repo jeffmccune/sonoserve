@@ -139,7 +139,7 @@ run: build ## Build and run the server
 .PHONY: dev
 dev: ## Run in development mode (without building)
 	@echo "Running in development mode..."
-	go run $(MAIN_PACKAGE)
+	go run main.go ui.go
 
 .PHONY: tools
 tools: ## Install development tools

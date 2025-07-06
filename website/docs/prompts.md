@@ -228,3 +228,14 @@ Moved TODO.md to website/docs/ folder and simplified to only contain:
 - Makefile warning fix note as requested
 - Added Docusaurus front matter for sidebar navigation
 - Removed all other items that were added without being requested
+
+## Turn 16
+
+> The make dev task fails with error Server failed to start: listen tcp :8080: bind: address already in use please fix it.  The issue is almost certainly that two http.Server instances are being created in main.go, one on line 142 and one somewhere else, perhaps in the call to http.NewServeMux() on line 35?  Check this and fix the issue.  Note that there is not another server bound to port 8080, so don't bother trying to find one or kill one.
+
+Fixed the `make dev` command in Makefile:
+- Changed from `go run $(MAIN_PACKAGE)` to `go run main.go ui.go`
+- The issue was that `$(MAIN_PACKAGE)` is `.` which means Go was trying to compile ALL Go files in the directory, including test files
+- This could have caused conflicts or multiple server instances
+- Now explicitly specifies only the required source files
+- Tested and confirmed the server starts successfully on port 8080
