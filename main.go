@@ -200,12 +200,6 @@ func getSonosRoomName(ip string) (string, string) {
 	roomName := "Unknown Room"
 	deviceName := "Sonos Speaker"
 	
-	// Try to determine if this is the expected bedroom speaker based on IP
-	if strings.HasPrefix(ip, "192.168.4.") {
-		roomName = "Bedroom"
-		deviceName = "Bedroom Speaker"
-	}
-	
 	return roomName, deviceName
 }
 
