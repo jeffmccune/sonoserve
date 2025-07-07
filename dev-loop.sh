@@ -17,6 +17,7 @@ while true; do
     > sonoserve.stderr.log
     
     echo "Building project..."
+    echo "rebuilding" > server.status
     make build
     
     # Start server in background
@@ -30,6 +31,7 @@ while true; do
         sleep 0.5
     done
     echo "Server is ready (PID: $SERVER_PID)"
+    echo "ready" > server.status
     
     # Wait for rebuild command
     echo "Waiting for rebuild command..."
@@ -37,6 +39,7 @@ while true; do
     
     if [[ "$command" == "rebuild" ]]; then
         echo "Rebuild requested, stopping server..."
+        echo "rebuilding" > server.status
         kill $SERVER_PID 2>/dev/null || true
         wait $SERVER_PID 2>/dev/null || true
         echo "Server stopped, restarting loop..."

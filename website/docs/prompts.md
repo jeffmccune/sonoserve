@@ -24,3 +24,11 @@ Updating prompts.md with the latest conversation and committing changes.
 > Thanks but the dev-loop.sh script calls the wrong executable, it should be ./bin/sonoserve
 
 Fixed dev-loop.sh to use the correct executable path `./bin/sonoserve`.
+
+## Turn 4 - Add server.status file writing
+
+> Update the dev-loop.sh script to write a server.status file to the root of the repo for you to read. When the rebuild command is recieved, write over this file content with "rebuilding". When the server is ready, write "ready" to this file.
+
+Updated dev-loop.sh to write status to server.status file:
+- Writes "rebuilding" when starting build or receiving rebuild command
+- Writes "ready" when server health check passes
