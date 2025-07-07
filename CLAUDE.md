@@ -72,3 +72,7 @@ The system uses a client-server model where the CardPuter sends HTTP requests to
 
 - Use `./dev-loop.sh` to run the development server with automatic rebuild capability
 - Use `./dev-rebuild.sh` to trigger a server rebuild
+
+## Task Management
+
+- Tasks the user may ask you to perform are stored in the website/docs/tasks/ folder
