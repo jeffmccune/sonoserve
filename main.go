@@ -310,8 +310,8 @@ func playHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	// Create Sonos connection with AV Transport service for playback control
-	s := sonos.MakeSonos(svcMap, nil, sonos.SVC_AV_TRANSPORT)
+	// Create Sonos connection with AV Transport and Content Directory services
+	s := sonos.MakeSonos(svcMap, nil, sonos.SVC_AV_TRANSPORT|sonos.SVC_CONTENT_DIRECTORY)
 	if s == nil {
 		log.Printf("Failed to create Sonos connection")
 		http.Error(w, "Failed to connect to speaker", http.StatusInternalServerError)
@@ -385,12 +385,18 @@ func playHandler(w http.ResponseWriter, r *http.Request) {
 	
 	log.Printf("Added %d tracks to queue, setting up playback from queue", addedTracks)
 	
-	// Set the AV Transport URI to the queue (Q:0) to play from the queue
-	err = s.SetAVTransportURI(0, "Q:0", "")
-	if err != nil {
-		log.Printf("Failed to set queue URI: %v", err)
-		http.Error(w, "Failed to set queue for playback", http.StatusInternalServerError)
+	// Get queue metadata to obtain the correct playable URI
+	if data, err := s.GetMetadata(sonos.ObjectID_Queue_AVT_Instance_0); err != nil {
+		log.Printf("Failed to get queue metadata: %v", err)
+		http.Error(w, "Failed to get queue metadata", http.StatusInternalServerError)
 		return
+	} else {
+		// Use the actual resource URI from metadata
+		if err := s.SetAVTransportURI(0, data[0].Res(), ""); err != nil {
+			log.Printf("Failed to set queue URI: %v", err)
+			http.Error(w, "Failed to set queue for playback", http.StatusInternalServerError)
+			return
+		}
 	}
 	
 	log.Printf("Queue URI set successfully, starting playback...")
