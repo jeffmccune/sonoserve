@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"io/fs"
 	"log"
 	"net"
@@ -163,6 +164,7 @@ func setupRoutes() *http.ServeMux {
 	mux.HandleFunc("/sonos/restart-playlist", restartPlaylistHandler)
 	mux.HandleFunc("/api/sonos/discover", discoverHandler)
 	mux.HandleFunc("/api/sonos/speakers", speakersHandler)
+	mux.HandleFunc("/echo", echoHandler)
 
 	return mux
 }
@@ -184,6 +186,23 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("OK\n"))
+}
+
+func echoHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Failed to read request body", http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+	
+	w.WriteHeader(http.StatusOK)
+	w.Write(body)
 }
 
 func playlistHandler(w http.ResponseWriter, r *http.Request) {

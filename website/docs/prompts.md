@@ -56,3 +56,18 @@ Created `dev-rebuild.sh` script that triggers a rebuild by sending "rebuild" to 
 Updated CLAUDE.md to:
 - Replace the echo command instruction with `./dev-rebuild.sh` usage
 - Added Development Scripts section documenting both dev-loop.sh and dev-rebuild.sh
+
+## Turn 8 - Exercise dev loop with echo endpoint
+
+> Now, let's exercise the dev loop. Add a simple echo endpoint to main.go then test it echos back what is posted by using curl to send Hi Jeff and verifying the server returns Hi Jeff.
+
+Added `/echo` endpoint to main.go that:
+- Accepts POST requests only
+- Reads request body and echoes it back
+- Added `io` import for `io.ReadAll`
+
+Tested the dev loop:
+1. Triggered rebuild with `./dev-rebuild.sh`
+2. Waited for server ready status
+3. Tested with `curl -X POST -d "Hi Jeff" http://localhost:8080/echo`
+4. Successfully received "Hi Jeff" response
