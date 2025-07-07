@@ -132,8 +132,8 @@ void setupWiFi() {
   M5Cardputer.Display.println("Network: " + selectedSSID);
   M5Cardputer.Display.setTextSize(1);
   M5Cardputer.Display.println("\nEnter password:");
-  M5Cardputer.Display.println("Press Enter when done");
-  M5Cardputer.Display.println("Press ` to confirm");
+  M5Cardputer.Display.println("Press Enter to confirm");
+  M5Cardputer.Display.println("Press `/~ to confirm");
   M5Cardputer.Display.println("Press ESC to cancel");
   
   String password = "";
@@ -141,49 +141,78 @@ void setupWiFi() {
   
   while (true) {
     M5Cardputer.update();
-    if (M5Cardputer.Keyboard.isChange() && M5Cardputer.Keyboard.isPressed()) {
-      Keyboard_Class::KeysState status = M5Cardputer.Keyboard.keysState();
-      
-      for (auto i : status.word) {
-        // Debug: Show key code at bottom of screen
-        M5Cardputer.Display.fillRect(0, 120, 240, 20, BLACK);
-        M5Cardputer.Display.setCursor(0, 120);
-        M5Cardputer.Display.setTextSize(1);
-        M5Cardputer.Display.print("Key: ");
-        M5Cardputer.Display.print(i);
-        M5Cardputer.Display.print(" (0x");
-        M5Cardputer.Display.print(i, HEX);
-        M5Cardputer.Display.print(")");
-        M5Cardputer.Display.setTextSize(2);
+    if (M5Cardputer.Keyboard.isChange()) {
+      if (M5Cardputer.Keyboard.isPressed()) {
+        Keyboard_Class::KeysState status = M5Cardputer.Keyboard.keysState();
         
-        if (i == 0x0D || i == 0x0A || i == '\r' || i == '\n') {  // Enter/Return key variations
-          // Save credentials and connect
-          preferences.putString("ssid", selectedSSID);
-          preferences.putString("password", password);
-          connectToWiFi(selectedSSID.c_str(), password.c_str());
-          return;
-        } else if (i == 0x1B) {  // ESC key
-          // Cancel and restart
-          ESP.restart();
-        } else if (i == 0x08 || i == 0x7F) {  // Backspace or Delete
-          if (password.length() > 0) {
-            password.remove(password.length() - 1);
+        // Check for Enter key using multiple methods
+        bool enterPressed = false;
+        
+        // Method 1: Check the raw key value
+        uint8_t key = M5Cardputer.Keyboard.getKey();
+        if (key != 0) {
+          // Debug: Show raw key value
+          M5Cardputer.Display.fillRect(0, 120, 240, 20, BLACK);
+          M5Cardputer.Display.setCursor(0, 120);
+          M5Cardputer.Display.setTextSize(1);
+          M5Cardputer.Display.print("Raw: ");
+          M5Cardputer.Display.print(key);
+          M5Cardputer.Display.print(" (0x");
+          M5Cardputer.Display.print(key, HEX);
+          M5Cardputer.Display.print(")");
+          M5Cardputer.Display.setTextSize(2);
+          
+          // Check for Enter key (commonly 0x0D, 0x0A, or specific M5 codes)
+          if (key == 0x0D || key == 0x0A || key == 13 || key == 10 || key == 0x5A) {
+            enterPressed = true;
+          }
+        }
+        
+        // Method 2: Check the word array as before
+        for (auto i : status.word) {
+          // Debug: Show word array values
+          if (i != 0) {
+            M5Cardputer.Display.fillRect(0, 140, 240, 20, BLACK);
+            M5Cardputer.Display.setCursor(0, 140);
+            M5Cardputer.Display.setTextSize(1);
+            M5Cardputer.Display.print("Word: ");
+            M5Cardputer.Display.print(i);
+            M5Cardputer.Display.print(" '");
+            if (i >= 32 && i <= 126) M5Cardputer.Display.print((char)i);
+            M5Cardputer.Display.print("'");
+            M5Cardputer.Display.setTextSize(2);
+          }
+          
+          if (i == 0x0D || i == 0x0A || i == '\r' || i == '\n' || i == 13 || i == 10) {
+            enterPressed = true;
+          } else if (i == 0x1B || key == 0x1B) {  // ESC key
+            // Cancel and restart
+            ESP.restart();
+          } else if (i == 0x08 || i == 0x7F || key == 0x08 || key == 0x7F) {  // Backspace or Delete
+            if (password.length() > 0) {
+              password.remove(password.length() - 1);
+              // Update display
+              M5Cardputer.Display.fillRect(0, 80, 240, 40, BLACK);
+              M5Cardputer.Display.setCursor(0, 80);
+              M5Cardputer.Display.print(password);
+            }
+          } else if (i == '`' || i == '~') {  // Backtick or tilde as alternate confirm
+            enterPressed = true;
+          } else if (i >= 32 && i <= 126) {  // Printable characters
+            password += (char)i;
             // Update display
             M5Cardputer.Display.fillRect(0, 80, 240, 40, BLACK);
             M5Cardputer.Display.setCursor(0, 80);
             M5Cardputer.Display.print(password);
           }
-        } else if (i == '`') {  // Use backtick as alternate confirm key
-          // Save credentials and connect
+        }
+        
+        // If Enter was detected by any method, save and connect
+        if (enterPressed) {
           preferences.putString("ssid", selectedSSID);
           preferences.putString("password", password);
           connectToWiFi(selectedSSID.c_str(), password.c_str());
           return;
-        } else if (i >= 32 && i <= 126) {  // Printable characters
-          password += (char)i;
-          // Update display
-          M5Cardputer.Display.setCursor(0, 80);
-          M5Cardputer.Display.print(password);
         }
       }
     }
