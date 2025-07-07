@@ -108,3 +108,29 @@ Added to controller.md:
 3. **Updated pause and restart handlers** - Now include speaker parameter in requests
 
 The controller page now provides full control over presets and queue inspection.
+
+## Turn 6 - Replace Alerts with Visual Button Feedback
+
+> Thanks, but don't use an alert to notify when the actions are successful.
+>
+> 1. Replace instances of alert for successful actions with a behavior that updates the button to include a green checkmark.
+> 2. Replace instances of alert for caught errors with a behavior that updates the button to include a red x.
+> 3. Preserve the behavior of the finaly case enabling the button.
+> 4. Update prompts and commit.
+> 5. Rebuild the server.
+
+I'll update the controller page to replace alerts with visual feedback on the buttons themselves.
+
+Updated all button handlers in controller.md:
+
+1. **Play button** - Shows ✅ Play on success, ❌ Play on error, reverts to ▶️ Play after 2 seconds
+2. **Pause button** - Shows ✅ Pause on success, ❌ Pause on error, reverts to ⏸️ Pause after 2 seconds  
+3. **Restart button** - Shows ✅ Restart Playlist on success, ❌ Restart Playlist on error, reverts to 🔄 Restart Playlist after 2 seconds
+4. **Preset buttons** - Show ✅ on success, ❌ on error, revert to preset number after 2 seconds
+
+All buttons:
+- Disable during operation to prevent double-clicks
+- Show loading state (⏳) during fetch
+- Use setTimeout to revert text after 2 seconds
+- Preserve finally block for re-enabling buttons
+- Keep console.log for debugging

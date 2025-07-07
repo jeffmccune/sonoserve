@@ -194,15 +194,20 @@ Select which speaker to control:
         })
         .then(result => {
           console.log('Play result:', result);
-          alert(`✅ ${result}`);
+          playButton.textContent = '✅ Play';
+          setTimeout(() => {
+            playButton.textContent = '▶️ Play';
+          }, 2000);
         })
         .catch(error => {
           console.error('Play error:', error);
-          alert(`❌ Failed to play: ${error.message}`);
+          playButton.textContent = '❌ Play';
+          setTimeout(() => {
+            playButton.textContent = '▶️ Play';
+          }, 2000);
         })
         .finally(() => {
           playButton.disabled = false;
-          playButton.textContent = '▶️ Play';
         });
     }} 
     style={{marginRight: '10px'}}
@@ -211,17 +216,21 @@ Select which speaker to control:
     ▶️ Play
   </button>
   <button 
-    onClick={() => {
+    onClick={(e) => {
       const selectedSpeaker = document.querySelector('input[name="speaker"]:checked');
       if (!selectedSpeaker) {
         alert('Please select a speaker first');
         return;
       }
       
+      const pauseButton = e.target;
       const server = document.getElementById('serverInput').value || 'localhost:8080';
       const url = (window.location.host === server) 
         ? '/sonos/pause' 
         : `http://${server}/sonos/pause`;
+      
+      pauseButton.disabled = true;
+      pauseButton.textContent = '⏳ Pausing...';
       
       fetch(url, {
         method: 'POST',
@@ -240,11 +249,20 @@ Select which speaker to control:
         })
         .then(result => {
           console.log('Pause result:', result);
-          alert(`✅ ${result}`);
+          pauseButton.textContent = '✅ Pause';
+          setTimeout(() => {
+            pauseButton.textContent = '⏸️ Pause';
+          }, 2000);
         })
         .catch(error => {
           console.error('Pause error:', error);
-          alert(`❌ Failed to pause: ${error.message}`);
+          pauseButton.textContent = '❌ Pause';
+          setTimeout(() => {
+            pauseButton.textContent = '⏸️ Pause';
+          }, 2000);
+        })
+        .finally(() => {
+          pauseButton.disabled = false;
         });
     }} 
     style={{marginRight: '10px'}}
@@ -252,17 +270,21 @@ Select which speaker to control:
     ⏸️ Pause
   </button>
   <button 
-    onClick={() => {
+    onClick={(e) => {
       const selectedSpeaker = document.querySelector('input[name="speaker"]:checked');
       if (!selectedSpeaker) {
         alert('Please select a speaker first');
         return;
       }
       
+      const restartButton = e.target;
       const server = document.getElementById('serverInput').value || 'localhost:8080';
       const url = (window.location.host === server) 
         ? '/sonos/restart-playlist' 
         : `http://${server}/sonos/restart-playlist`;
+      
+      restartButton.disabled = true;
+      restartButton.textContent = '⏳ Restarting...';
       
       fetch(url, {
         method: 'POST',
@@ -281,11 +303,20 @@ Select which speaker to control:
         })
         .then(result => {
           console.log('Restart result:', result);
-          alert(`✅ ${result}`);
+          restartButton.textContent = '✅ Restart Playlist';
+          setTimeout(() => {
+            restartButton.textContent = '🔄 Restart Playlist';
+          }, 2000);
         })
         .catch(error => {
           console.error('Restart playlist error:', error);
-          alert(`❌ Failed to restart playlist: ${error.message}`);
+          restartButton.textContent = '❌ Restart Playlist';
+          setTimeout(() => {
+            restartButton.textContent = '🔄 Restart Playlist';
+          }, 2000);
+        })
+        .finally(() => {
+          restartButton.disabled = false;
         });
     }}
   >
@@ -334,15 +365,20 @@ Quick access to preset playlists:
           })
           .then(result => {
             console.log(`Preset ${num} result:`, result);
-            alert(`✅ ${result}`);
+            button.textContent = '✅';
+            setTimeout(() => {
+              button.textContent = num;
+            }, 2000);
           })
           .catch(error => {
             console.error(`Preset ${num} error:`, error);
-            alert(`❌ Failed to play preset ${num}: ${error.message}`);
+            button.textContent = '❌';
+            setTimeout(() => {
+              button.textContent = num;
+            }, 2000);
           })
           .finally(() => {
             button.disabled = false;
-            button.textContent = num;
           });
       }}
       style={{
