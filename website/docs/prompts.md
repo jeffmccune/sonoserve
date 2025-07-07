@@ -22,3 +22,29 @@ I've implemented all the requested features:
 5. **Optional speaker names** - Updated all handlers (play, pause, queue, restart-playlist, preset) to use the default speaker when not specified
 
 The implementation sorts files alphanumerically and plays the entire preset playlist when triggered. The Frozen soundtrack in preset 1 is ready to use.
+
+## Turn 2 - Test Preset Functionality
+
+> Thanks. 1. Read CLAUDE.md and remmeber how we work with this code base. 2. Rebuild the server. 3. Trigger preset 2 without specifying the speaker name.
+
+I'll help you with those tasks. Let me start by reading CLAUDE.md to understand the codebase workflow.
+
+[Read CLAUDE.md]
+
+Good, I understand the workflow. Now let me trigger a server rebuild.
+
+[Triggered rebuild and waited for ready status]
+
+Great! The server is ready. Now let me trigger preset 2 without specifying the speaker name. It should use the default speaker "Kids Room".
+
+```bash
+curl -X POST localhost:8080/sonos/preset/2
+```
+
+Perfect! The server successfully triggered preset 2 on the default speaker "Kids Room" without requiring the speaker name to be specified.
+
+## Turn 3 - Update Documentation
+
+> Remember to update prompts and commit each turn, do it for the last and this.
+
+You're right! Let me update prompts.md with both the previous turn and this current turn, then commit.
