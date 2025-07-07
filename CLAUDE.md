@@ -13,7 +13,7 @@ Sonoserve is a simple server that allows a 5-year-old to control a Sonos Play:1 
 ### Go Server
 ```bash
 # Run the server (listens on port 8080)
-go run main.go
+make dev
 
 # Build executable
 go build
@@ -44,26 +44,15 @@ The system uses a client-server model where the CardPuter sends HTTP requests to
 
 ## Development Workflow
 
-1. Always update `prompts.md` with conversation history after each turn
+1. Always update `website/docs/prompts.md` with conversation history after each turn
 2. Commit changes after each development step
 3. The server uses graceful shutdown - handle SIGINT/SIGTERM properly
 
 ## Current State
 
 - Basic HTTP server structure implemented
-- API endpoints defined but return stub responses
-- No Sonos SDK integration yet
-- No authentication implemented
-- No configuration management system
-- No tests written yet
 
 ## Reminders
 
-- Remember to commit after updating prompts.
 - Remember to update ./website/docs/prompts.md after every turn in the conversation, especially after context is compacted
 - Remember to commit prompts.md after every turn in the conversation
-- Remember to stop the server using Bash(make kill) then wait 1 second to proceed.
-
-## Server Startup
-
-- Remember to start the server using Bash(make background) the server will start in the background. Wait until you see "Startup discovery completed" to proceed after starting.
