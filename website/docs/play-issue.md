@@ -40,9 +40,61 @@ Error 714 in UPnP/Sonos context typically indicates:
 - Check if Sonos requires specific HTTP headers (User-Agent, etc.)
 - Verify MP3 file format compatibility (bitrate, encoding)
 
+## Queue Endpoint Test Results
+
+**Test Command:**
+```bash
+curl -X POST localhost:8080/sonos/queue -H "Content-Type: application/json" -d '{"speaker": "Kids Room"}'
+```
+
+**Result:**
+```json
+{"queue_contents":[{}],"queue_length":1,"speaker":"Kids Room"}
+```
+
+**Analysis:**
+- Queue endpoint works correctly
+- Shows 1 item in queue with empty metadata (`{}`)
+- This suggests the track was added to the queue but metadata is not populated
+- The queue contains the track from the previous failed play attempt
+
+## Specific Failure Points in main.go
+
+**Play Handler Function**: Lines 272-405
+
+**Key Operation Points:**
+1. **Queue Clearing**: Line 322 - `s.RemoveAllTracksFromQueue(0)` - ✅ Works
+2. **Track Addition**: Line 356 - `s.AddURIToQueue(0, req)` - ✅ Works (confirmed by queue endpoint)
+3. **Queue URI Setting**: Line 385 - `s.SetAVTransportURI(0, "Q:0", "")` - ❌ **FAILURE POINT**
+4. **Playback Start**: Line 393 - `s.Play(0, "1")` - Not reached
+
+**Exact Failure Location:**
+- **File**: `/Users/jeff/esp/sonoserve/main.go`
+- **Line**: 385
+- **Function**: `playHandler`
+- **Operation**: `s.SetAVTransportURI(0, "Q:0", "")`
+- **Error**: "Failed to set queue URI: 714" (Illegal MIME-Type)
+
+## Updated Root Cause Analysis
+
+The issue is NOT with:
+- Speaker discovery (✅ working)
+- Queue clearing (✅ working)
+- Track addition to queue (✅ working - confirmed by queue endpoint)
+
+The issue IS with:
+- **MIME type of the MP3 file** being served at `http://192.168.4.134:8080/music/sample.mp3`
+- The Sonos device rejects the queue URI because it cannot accept the content type
+
 ## Next Actions
 
-1. First verify the MP3 endpoint is serving correct Content-Type
-2. Fix MIME type if incorrect
-3. Test the play endpoint again
-4. If still failing, investigate network connectivity between server and Sonos device
+1. **Test MP3 endpoint directly:**
+   ```bash
+   curl -I http://192.168.4.134:8080/music/sample.mp3
+   ```
+
+2. **Check Content-Type header** - Should be `audio/mpeg` or `audio/mp3`
+
+3. **Find and fix the music endpoint handler** in main.go
+
+4. **Verify MP3 file format** - Ensure it's compatible with Sonos requirements

@@ -162,6 +162,7 @@ func setupRoutes() *http.ServeMux {
 	mux.HandleFunc("/sonos/play", playHandler)
 	mux.HandleFunc("/sonos/pause", pauseHandler)
 	mux.HandleFunc("/sonos/restart-playlist", restartPlaylistHandler)
+	mux.HandleFunc("/sonos/queue", queueHandler)
 	mux.HandleFunc("/api/sonos/discover", discoverHandler)
 	mux.HandleFunc("/api/sonos/speakers", speakersHandler)
 	mux.HandleFunc("/echo", echoHandler)
@@ -401,6 +402,63 @@ func playHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Successfully started playback on %s", speaker.Name)
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(fmt.Sprintf("Playing playlist on %s\n", speaker.Name)))
+}
+
+func queueHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		Speaker string `json:"speaker"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Printf("Error decoding JSON request: %v", err)
+		http.Error(w, "Invalid JSON request", http.StatusBadRequest)
+		return
+	}
+
+	if req.Speaker == "" {
+		http.Error(w, "Speaker name is required", http.StatusBadRequest)
+		return
+	}
+
+	log.Printf("Queue requested for speaker: %s", req.Speaker)
+
+	speaker, exists := speakerCache[req.Speaker]
+	if !exists {
+		http.Error(w, "Speaker not found", http.StatusNotFound)
+		return
+	}
+
+	// Connect to Sonos device
+	locationURL := fmt.Sprintf("http://%s:1400/xml/device_description.xml", speaker.Address)
+	
+	svcMap, err := upnp.Describe(ssdp.Location(locationURL))
+	if err != nil {
+		log.Printf("Failed to describe Sonos device: %v", err)
+		http.Error(w, "Failed to connect to speaker", http.StatusInternalServerError)
+		return
+	}
+
+	// Create Sonos connection with Content Directory service for queue browsing
+	s := sonos.MakeSonos(svcMap, nil, sonos.SVC_CONTENT_DIRECTORY)
+	
+	queueContents, err := s.GetQueueContents()
+	if err != nil {
+		log.Printf("Error getting queue contents: %v", err)
+		http.Error(w, "Failed to get queue contents", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"speaker": req.Speaker,
+		"queue_length": len(queueContents),
+		"queue_contents": queueContents,
+	})
 }
 
 func pauseHandler(w http.ResponseWriter, r *http.Request) {
