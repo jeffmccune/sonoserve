@@ -1,8 +1,5 @@
 #!/bin/bash
 
-# Exit on error
-set -e
-
 # Create FIFO if it doesn't exist
 FIFO="/tmp/sonoserve-dev-loop.fifo"
 if [[ ! -p "$FIFO" ]]; then
@@ -18,7 +15,15 @@ while true; do
     
     echo "Building project..."
     echo "rebuilding" > server.status
-    make build
+    
+    # Build project and check for errors
+    if ! make build; then
+        echo "Build failed!"
+        echo "error: please stop and wait for human" > server.status
+        echo "Waiting for rebuild command due to build failure..."
+        read command < "$FIFO"
+        continue
+    fi
     
     # Start server in background
     echo "Starting server..."

@@ -29,3 +29,9 @@ Play endpoint tested on "Kids Room" - failed with error 714 "Failed to set queue
 > 1. Add an endpoint to get the current queue from a speaker so we can debug what's currently loaded into the speaker. Take the speaker name as a parameter. 2. Test the endpoint using curl and write the results into the plan to fix play endpoint file 3. Update the plan to include specific line numbers in main.go where the failure point happens. 4. Remember to update prompts and commit.
 
 Added /sonos/queue endpoint to get current queue contents from a speaker. The queue endpoint confirmed that tracks are being added to the queue successfully, but the failure occurs at line 385 in main.go when calling `s.SetAVTransportURI(0, "Q:0", "")`. Updated play-issue.md with test results and specific line numbers showing the exact failure point.
+
+## Turn 6 - Update dev-loop.sh for build error handling
+
+> Update the dev-loop.sh script to write "error: please stop and wait for human" to the server.status file if the build fails. Remember to update prompts and commit.
+
+Updated dev-loop.sh to handle build failures gracefully. Removed `set -e` flag and added error handling around `make build` command. If build fails, the script now writes "error: please stop and wait for human" to server.status and waits for rebuild command instead of exiting.
