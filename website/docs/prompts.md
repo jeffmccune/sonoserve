@@ -35,3 +35,9 @@ Added /sonos/queue endpoint to get current queue contents from a speaker. The qu
 > Update the dev-loop.sh script to write "error: please stop and wait for human" to the server.status file if the build fails. Remember to update prompts and commit.
 
 Updated dev-loop.sh to handle build failures gracefully. Removed `set -e` flag and added error handling around `make build` command. If build fails, the script now writes "error: please stop and wait for human" to server.status and waits for rebuild command instead of exiting.
+
+## Turn 7 - Update playHandler metadata field
+
+> Update the playHandler to set the EnqueuedURIMetaData field to the filename of the songURL. Update prompts and commit.
+
+Updated playHandler in main.go to extract filename from songURL and set it in the EnqueuedURIMetaData field. The metadata now uses DIDL-Lite XML format with the filename (without extension) as the dc:title. This should provide proper track metadata to the Sonos device when adding tracks to the queue.

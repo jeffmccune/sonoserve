@@ -346,10 +346,15 @@ func playHandler(w http.ResponseWriter, r *http.Request) {
 			
 			log.Printf("Adding track to queue: %s", songURL)
 			
-			// Add URI to queue - empty metadata is fine
+			// Extract filename from URL for metadata
+			filename := filepath.Base(songURL)
+			// Remove file extension for cleaner display
+			songTitle := strings.TrimSuffix(filename, filepath.Ext(filename))
+			
+			// Add URI to queue with filename as metadata
 			req := &upnp.AddURIToQueueIn{
 				EnqueuedURI:         songURL,
-				EnqueuedURIMetaData: "",
+				EnqueuedURIMetaData: fmt.Sprintf("<DIDL-Lite><item><dc:title>%s</dc:title></item></DIDL-Lite>", songTitle),
 				DesiredFirstTrackNumberEnqueued: 0,
 				EnqueueAsNext: false,
 			}
