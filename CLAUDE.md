@@ -58,6 +58,8 @@ The system uses a client-server model where the CardPuter sends HTTP requests to
 
 - Remember to update ./website/docs/prompts.md after every turn in the conversation, especially after context is compacted
 - Remember to commit prompts.md after every turn in the conversation
+- Remember notes get added into the ./website/docs/notes.md file
+- Always remember to update website/docs/prompts.md and commit each turn in the session
 
 ## Server Testing Workflow
 
