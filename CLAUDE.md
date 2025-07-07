@@ -64,6 +64,7 @@ The system uses a client-server model where the CardPuter sends HTTP requests to
   2. Read server.status until it contains the string "ready"
   3. Perform tests against the running server
 
-## Development Tricks
+## Development Scripts
 
-- Trigger a server rebuild by executing Bash(echo rebuild > /tmp/sonoserve-dev-loop.fifo)
+- Use `./dev-loop.sh` to run the development server with automatic rebuild capability
+- Use `./dev-rebuild.sh` to trigger a server rebuild (executes: `Bash(./dev-rebuild.sh)`)

@@ -48,3 +48,11 @@ Modified the health endpoint to:
 > Add a dev-rebuild.sh script that executes echo rebuild > /tmp/sonoserve-dev-loop.fifo so you can execute this script without prompting me.
 
 Created `dev-rebuild.sh` script that triggers a rebuild by sending "rebuild" to the FIFO.
+
+## Turn 7 - Update CLAUDE.md with dev-rebuild.sh usage
+
+> Update CLAUDE.md to remember that you should run Bash(./dev-rebuild.sh) instead of the echo command.
+
+Updated CLAUDE.md to:
+- Replace the echo command instruction with `./dev-rebuild.sh` usage
+- Added Development Scripts section documenting both dev-loop.sh and dev-rebuild.sh
