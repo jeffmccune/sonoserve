@@ -398,6 +398,66 @@ Quick access to preset playlists:
   ))}
 </div>
 
+## API Examples
+
+Here are curl command examples for all the API endpoints:
+
+### Health Check
+```bash
+curl -s localhost:8080/health
+```
+
+### Get Speakers (list cached speakers)
+```bash
+curl -s localhost:8080/api/sonos/speakers
+```
+
+### Discover Speakers (find new speakers)
+```bash
+curl -X POST localhost:8080/api/sonos/discover
+```
+
+### Play
+```bash
+curl -X POST localhost:8080/sonos/play \
+  -H "Content-Type: application/json" \
+  -d '{"speaker": "Living Room"}'
+```
+
+### Pause
+```bash
+curl -X POST localhost:8080/sonos/pause \
+  -H "Content-Type: application/json" \
+  -d '{"speaker": "Living Room"}'
+```
+
+### Restart Playlist
+```bash
+curl -X POST localhost:8080/sonos/restart-playlist \
+  -H "Content-Type: application/json" \
+  -d '{"speaker": "Living Room"}'
+```
+
+### Play Preset (0-9)
+```bash
+# Replace {num} with a number 0-9
+curl -X POST localhost:8080/sonos/preset/{num} \
+  -H "Content-Type: application/json" \
+  -d '{"speaker": "Living Room"}'
+
+# Example for preset 5:
+curl -X POST localhost:8080/sonos/preset/5 \
+  -H "Content-Type: application/json" \
+  -d '{"speaker": "Living Room"}'
+```
+
+### Get Queue
+```bash
+curl -X POST localhost:8080/sonos/queue \
+  -H "Content-Type: application/json" \
+  -d '{"speaker": "Living Room"}'
+```
+
 ## Get Speaker Queue
 
 View the current queue on the selected speaker:
