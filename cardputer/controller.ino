@@ -133,6 +133,7 @@ void setupWiFi() {
   M5Cardputer.Display.setTextSize(1);
   M5Cardputer.Display.println("\nEnter password:");
   M5Cardputer.Display.println("Press Enter when done");
+  M5Cardputer.Display.println("Press ` to confirm");
   M5Cardputer.Display.println("Press ESC to cancel");
   
   String password = "";
@@ -144,7 +145,18 @@ void setupWiFi() {
       Keyboard_Class::KeysState status = M5Cardputer.Keyboard.keysState();
       
       for (auto i : status.word) {
-        if (i == 0x0D) {  // Enter key
+        // Debug: Show key code at bottom of screen
+        M5Cardputer.Display.fillRect(0, 120, 240, 20, BLACK);
+        M5Cardputer.Display.setCursor(0, 120);
+        M5Cardputer.Display.setTextSize(1);
+        M5Cardputer.Display.print("Key: ");
+        M5Cardputer.Display.print(i);
+        M5Cardputer.Display.print(" (0x");
+        M5Cardputer.Display.print(i, HEX);
+        M5Cardputer.Display.print(")");
+        M5Cardputer.Display.setTextSize(2);
+        
+        if (i == 0x0D || i == 0x0A || i == '\r' || i == '\n') {  // Enter/Return key variations
           // Save credentials and connect
           preferences.putString("ssid", selectedSSID);
           preferences.putString("password", password);
@@ -153,7 +165,7 @@ void setupWiFi() {
         } else if (i == 0x1B) {  // ESC key
           // Cancel and restart
           ESP.restart();
-        } else if (i == 0x08) {  // Backspace
+        } else if (i == 0x08 || i == 0x7F) {  // Backspace or Delete
           if (password.length() > 0) {
             password.remove(password.length() - 1);
             // Update display
@@ -161,6 +173,12 @@ void setupWiFi() {
             M5Cardputer.Display.setCursor(0, 80);
             M5Cardputer.Display.print(password);
           }
+        } else if (i == '`') {  // Use backtick as alternate confirm key
+          // Save credentials and connect
+          preferences.putString("ssid", selectedSSID);
+          preferences.putString("password", password);
+          connectToWiFi(selectedSSID.c_str(), password.c_str());
+          return;
         } else if (i >= 32 && i <= 126) {  // Printable characters
           password += (char)i;
           // Update display
@@ -259,19 +277,19 @@ void loop() {
           // Mute
           sendControlRequest("mute", "Toggling mute...");
           break;
-        } else if (i == 0x25) {  // Left arrow key
+        } else if (i == ',') {  // Left arrow key
           // Previous
           sendControlRequest("previous", "Previous track...");
           break;
-        } else if (i == 0x27) {  // Right arrow key
+        } else if (i == '/') {  // Right arrow key
           // Next
           sendControlRequest("next", "Next track...");
           break;
-        } else if (i == 0x26) {  // Up arrow key
+        } else if (i == ';') {  // Up arrow key
           // Volume up
           sendControlRequest("volume-up", "Volume up...");
           break;
-        } else if (i == 0x28) {  // Down arrow key
+        } else if (i == '.') {  // Down arrow key
           // Volume down
           sendControlRequest("volume-down", "Volume down...");
           break;
