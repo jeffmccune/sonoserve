@@ -137,7 +137,13 @@ func setupRoutes() *http.ServeMux {
 	if err != nil {
 		log.Fatalf("Failed to create music sub filesystem: %v", err)
 	}
-	mux.Handle("/music/", http.StripPrefix("/music/", http.FileServer(http.FS(musicSubFS))))
+	// Use custom handler to set proper MIME type for MP3 files
+	mux.Handle("/music/", http.StripPrefix("/music/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(strings.ToLower(r.URL.Path), ".mp3") {
+			w.Header().Set("Content-Type", "audio/mpeg")
+		}
+		http.FileServer(http.FS(musicSubFS)).ServeHTTP(w, r)
+	})))
 
 	// Serve embedded website
 	websiteSubFS, err := fs.Sub(websiteFS, "build")
