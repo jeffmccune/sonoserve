@@ -458,11 +458,31 @@ func queueHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Extract detailed information from queue items for debugging
+	var queueItems []map[string]interface{}
+	for i, item := range queueContents {
+		queueItem := map[string]interface{}{
+			"index":          i,
+			"id":             item.ID(),
+			"title":          item.Title(),
+			"uri":            item.Res(),
+			"creator":        item.Creator(),
+			"album":          item.Album(),
+			"track_number":   item.OriginalTrackNumber(),
+			"class":          item.Class(),
+			"album_art_uri":  item.AlbumArtURI(),
+			"parent_id":      item.ParentID(),
+			"restricted":     item.Restricted(),
+		}
+		queueItems = append(queueItems, queueItem)
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"speaker": req.Speaker,
-		"queue_length": len(queueContents),
-		"queue_contents": queueContents,
+		"speaker":        req.Speaker,
+		"queue_length":   len(queueContents),
+		"queue_items":    queueItems,
+		"raw_contents":   queueContents, // Keep raw data for debugging if needed
 	})
 }
 

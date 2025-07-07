@@ -41,3 +41,9 @@ Updated dev-loop.sh to handle build failures gracefully. Removed `set -e` flag a
 > Update the playHandler to set the EnqueuedURIMetaData field to the filename of the songURL. Update prompts and commit.
 
 Updated playHandler in main.go to extract filename from songURL and set it in the EnqueuedURIMetaData field. The metadata now uses DIDL-Lite XML format with the filename (without extension) as the dc:title. This should provide proper track metadata to the Sonos device when adding tracks to the queue.
+
+## Turn 8 - Enhance queue endpoint with detailed debugging info
+
+> Update the que endpoint to return the uri of the enqueued item in addition to the medata. I want to see the details of the queue for debugging. Test the queue endpoint. Update prompts and commit.
+
+Updated the queue endpoint to extract and return detailed information about each queue item including index, id, title, uri, creator, album, track_number, class, album_art_uri, parent_id, and restricted status. Tested the endpoint and confirmed it now shows the track URI (http://192.168.4.134:8080/music/sample.mp3) and metadata (title: "sample.mp3") properly. The enhanced response provides much better debugging visibility into the queue contents.
