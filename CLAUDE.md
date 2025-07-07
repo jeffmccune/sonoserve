@@ -9,14 +9,13 @@ Sonoserve is a simple server that allows a 5-year-old to control a Sonos Play:1 
 - ESP32 CardPuter client acting as a simple hotkey controller with visual feedback
 
 ## Development Commands
-
 ### Go Server
 ```bash
-# Run the server (listens on port 8080)
-make dev
+# Run the server (listens on port 8080, the human runs this)
+./dev-loop.sh
 
-# Build executable
-go build
+# Trigger a rebuild (the llm runs this
+./dev-rebuild.sh
 
 # Test endpoints
 curl -s localhost:8080/health
@@ -44,13 +43,16 @@ The system uses a client-server model where the CardPuter sends HTTP requests to
 
 ## Development Workflow
 
-1. Always update `website/docs/prompts.md` with conversation history after each turn
-2. Commit changes after each development step
-3. The server uses graceful shutdown - handle SIGINT/SIGTERM properly
+1. Always trigger a rebuild and restart after each development step using Bash(./dev-rebuild.sh)
+2. Always update `website/docs/prompts.md` with conversation history after each turn
+3. Always commit changes after each development step
 
 ## Current State
 
 - Basic HTTP server structure implemented
+- Discovery endpoint implemented
+- Basic Web UI implemented for testing in controller.md (simulates the http requests the esp32s3 will make)
+- No work on esp32s3 started
 
 ## Reminders
 
@@ -67,4 +69,4 @@ The system uses a client-server model where the CardPuter sends HTTP requests to
 ## Development Scripts
 
 - Use `./dev-loop.sh` to run the development server with automatic rebuild capability
-- Use `./dev-rebuild.sh` to trigger a server rebuild (executes: `Bash(./dev-rebuild.sh)`)
+- Use `./dev-rebuild.sh` to trigger a server rebuild
