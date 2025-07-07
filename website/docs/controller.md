@@ -324,6 +324,339 @@ Select which speaker to control:
   </button>
 </div>
 
+## Additional Controls
+
+<div style={{marginTop: '20px'}}>
+  <button 
+    onClick={(e) => {
+      const selectedSpeaker = document.querySelector('input[name="speaker"]:checked');
+      if (!selectedSpeaker) {
+        alert('Please select a speaker first');
+        return;
+      }
+      
+      const button = e.target;
+      const server = document.getElementById('serverInput').value || 'localhost:8080';
+      const url = (window.location.host === server) 
+        ? '/sonos/play-pause' 
+        : `http://${server}/sonos/play-pause`;
+      
+      button.disabled = true;
+      button.textContent = '⏳ Toggle...';
+      
+      fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          speaker: selectedSpeaker.value
+        })
+      })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          return response.text();
+        })
+        .then(result => {
+          console.log('Play/Pause result:', result);
+          button.textContent = '✅ Play/Pause';
+          setTimeout(() => {
+            button.textContent = '⏯️ Play/Pause';
+          }, 2000);
+        })
+        .catch(error => {
+          console.error('Play/Pause error:', error);
+          button.textContent = '❌ Play/Pause';
+          setTimeout(() => {
+            button.textContent = '⏯️ Play/Pause';
+          }, 2000);
+        })
+        .finally(() => {
+          button.disabled = false;
+        });
+    }} 
+    style={{marginRight: '10px'}}
+  >
+    ⏯️ Play/Pause
+  </button>
+  <button 
+    onClick={(e) => {
+      const selectedSpeaker = document.querySelector('input[name="speaker"]:checked');
+      if (!selectedSpeaker) {
+        alert('Please select a speaker first');
+        return;
+      }
+      
+      const button = e.target;
+      const server = document.getElementById('serverInput').value || 'localhost:8080';
+      const url = (window.location.host === server) 
+        ? '/sonos/next' 
+        : `http://${server}/sonos/next`;
+      
+      button.disabled = true;
+      button.textContent = '⏳ Next...';
+      
+      fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          speaker: selectedSpeaker.value
+        })
+      })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          return response.text();
+        })
+        .then(result => {
+          console.log('Next result:', result);
+          button.textContent = '✅ Next';
+          setTimeout(() => {
+            button.textContent = '⏭️ Next';
+          }, 2000);
+        })
+        .catch(error => {
+          console.error('Next error:', error);
+          button.textContent = '❌ Next';
+          setTimeout(() => {
+            button.textContent = '⏭️ Next';
+          }, 2000);
+        })
+        .finally(() => {
+          button.disabled = false;
+        });
+    }} 
+    style={{marginRight: '10px'}}
+  >
+    ⏭️ Next
+  </button>
+  <button 
+    onClick={(e) => {
+      const selectedSpeaker = document.querySelector('input[name="speaker"]:checked');
+      if (!selectedSpeaker) {
+        alert('Please select a speaker first');
+        return;
+      }
+      
+      const button = e.target;
+      const server = document.getElementById('serverInput').value || 'localhost:8080';
+      const url = (window.location.host === server) 
+        ? '/sonos/previous' 
+        : `http://${server}/sonos/previous`;
+      
+      button.disabled = true;
+      button.textContent = '⏳ Previous...';
+      
+      fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          speaker: selectedSpeaker.value
+        })
+      })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          return response.text();
+        })
+        .then(result => {
+          console.log('Previous result:', result);
+          button.textContent = '✅ Previous';
+          setTimeout(() => {
+            button.textContent = '⏮️ Previous';
+          }, 2000);
+        })
+        .catch(error => {
+          console.error('Previous error:', error);
+          button.textContent = '❌ Previous';
+          setTimeout(() => {
+            button.textContent = '⏮️ Previous';
+          }, 2000);
+        })
+        .finally(() => {
+          button.disabled = false;
+        });
+    }} 
+    style={{marginRight: '10px'}}
+  >
+    ⏮️ Previous
+  </button>
+</div>
+
+## Volume Controls
+
+<div style={{marginTop: '20px'}}>
+  <button 
+    onClick={(e) => {
+      const selectedSpeaker = document.querySelector('input[name="speaker"]:checked');
+      if (!selectedSpeaker) {
+        alert('Please select a speaker first');
+        return;
+      }
+      
+      const button = e.target;
+      const server = document.getElementById('serverInput').value || 'localhost:8080';
+      const url = (window.location.host === server) 
+        ? '/sonos/volume-up' 
+        : `http://${server}/sonos/volume-up`;
+      
+      button.disabled = true;
+      button.textContent = '⏳ Volume Up...';
+      
+      fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          speaker: selectedSpeaker.value
+        })
+      })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          return response.text();
+        })
+        .then(result => {
+          console.log('Volume up result:', result);
+          button.textContent = '✅ Volume Up';
+          setTimeout(() => {
+            button.textContent = '🔊 Volume Up';
+          }, 2000);
+        })
+        .catch(error => {
+          console.error('Volume up error:', error);
+          button.textContent = '❌ Volume Up';
+          setTimeout(() => {
+            button.textContent = '🔊 Volume Up';
+          }, 2000);
+        })
+        .finally(() => {
+          button.disabled = false;
+        });
+    }} 
+    style={{marginRight: '10px'}}
+  >
+    🔊 Volume Up
+  </button>
+  <button 
+    onClick={(e) => {
+      const selectedSpeaker = document.querySelector('input[name="speaker"]:checked');
+      if (!selectedSpeaker) {
+        alert('Please select a speaker first');
+        return;
+      }
+      
+      const button = e.target;
+      const server = document.getElementById('serverInput').value || 'localhost:8080';
+      const url = (window.location.host === server) 
+        ? '/sonos/volume-down' 
+        : `http://${server}/sonos/volume-down`;
+      
+      button.disabled = true;
+      button.textContent = '⏳ Volume Down...';
+      
+      fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          speaker: selectedSpeaker.value
+        })
+      })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          return response.text();
+        })
+        .then(result => {
+          console.log('Volume down result:', result);
+          button.textContent = '✅ Volume Down';
+          setTimeout(() => {
+            button.textContent = '🔉 Volume Down';
+          }, 2000);
+        })
+        .catch(error => {
+          console.error('Volume down error:', error);
+          button.textContent = '❌ Volume Down';
+          setTimeout(() => {
+            button.textContent = '🔉 Volume Down';
+          }, 2000);
+        })
+        .finally(() => {
+          button.disabled = false;
+        });
+    }} 
+    style={{marginRight: '10px'}}
+  >
+    🔉 Volume Down
+  </button>
+  <button 
+    onClick={(e) => {
+      const selectedSpeaker = document.querySelector('input[name="speaker"]:checked');
+      if (!selectedSpeaker) {
+        alert('Please select a speaker first');
+        return;
+      }
+      
+      const button = e.target;
+      const server = document.getElementById('serverInput').value || 'localhost:8080';
+      const url = (window.location.host === server) 
+        ? '/sonos/mute' 
+        : `http://${server}/sonos/mute`;
+      
+      button.disabled = true;
+      button.textContent = '⏳ Mute...';
+      
+      fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          speaker: selectedSpeaker.value
+        })
+      })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          return response.text();
+        })
+        .then(result => {
+          console.log('Mute result:', result);
+          button.textContent = '✅ Mute';
+          setTimeout(() => {
+            button.textContent = '🔇 Mute';
+          }, 2000);
+        })
+        .catch(error => {
+          console.error('Mute error:', error);
+          button.textContent = '❌ Mute';
+          setTimeout(() => {
+            button.textContent = '🔇 Mute';
+          }, 2000);
+        })
+        .finally(() => {
+          button.disabled = false;
+        });
+    }}
+  >
+    🔇 Mute
+  </button>
+</div>
+
 ## Presets
 
 Quick access to preset playlists:
@@ -454,6 +787,48 @@ curl -X POST localhost:8080/sonos/preset/5 \
 ### Get Queue
 ```bash
 curl -X POST localhost:8080/sonos/queue \
+  -H "Content-Type: application/json" \
+  -d '{"speaker": "Living Room"}'
+```
+
+### Play/Pause Toggle
+```bash
+curl -X POST localhost:8080/sonos/play-pause \
+  -H "Content-Type: application/json" \
+  -d '{"speaker": "Living Room"}'
+```
+
+### Next Track
+```bash
+curl -X POST localhost:8080/sonos/next \
+  -H "Content-Type: application/json" \
+  -d '{"speaker": "Living Room"}'
+```
+
+### Previous Track
+```bash
+curl -X POST localhost:8080/sonos/previous \
+  -H "Content-Type: application/json" \
+  -d '{"speaker": "Living Room"}'
+```
+
+### Volume Up (5%)
+```bash
+curl -X POST localhost:8080/sonos/volume-up \
+  -H "Content-Type: application/json" \
+  -d '{"speaker": "Living Room"}'
+```
+
+### Volume Down (5%)
+```bash
+curl -X POST localhost:8080/sonos/volume-down \
+  -H "Content-Type: application/json" \
+  -d '{"speaker": "Living Room"}'
+```
+
+### Mute Toggle
+```bash
+curl -X POST localhost:8080/sonos/mute \
   -H "Content-Type: application/json" \
   -d '{"speaker": "Living Room"}'
 ```
