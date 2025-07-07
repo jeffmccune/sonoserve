@@ -310,7 +310,7 @@ func presetHandler(w http.ResponseWriter, r *http.Request) {
 	
 	var addedTracks int
 	for _, mp3File := range mp3Files {
-		songURL := fmt.Sprintf("%s/music/presets/%s/%s", baseURL, presetNum, mp3File)
+		songURL := fmt.Sprintf("%s/music/presets/%s/%s", baseURL, presetNum, url.PathEscape(mp3File))
 		
 		log.Printf("Adding track to queue: %s", songURL)
 		
@@ -392,7 +392,7 @@ func playlistHandler(w http.ResponseWriter, r *http.Request) {
 			// Convert embedded path to HTTP URL
 			// Remove "music/" prefix since our HTTP handler strips it
 			httpPath := strings.TrimPrefix(path, "music/")
-			songURL := fmt.Sprintf("%s/music/%s", baseURL, httpPath)
+			songURL := fmt.Sprintf("%s/music/%s", baseURL, url.PathEscape(httpPath))
 			songs = append(songs, songURL)
 			log.Printf("Added to playlist: %s", songURL)
 		}
@@ -501,7 +501,7 @@ func playHandler(w http.ResponseWriter, r *http.Request) {
 			// Convert embedded path to HTTP URL
 			// Remove "music/" prefix since our HTTP handler strips it
 			httpPath := strings.TrimPrefix(path, "music/")
-			songURL := fmt.Sprintf("%s/music/%s", baseURL, httpPath)
+			songURL := fmt.Sprintf("%s/music/%s", baseURL, url.PathEscape(httpPath))
 			
 			log.Printf("Adding track to queue: %s", songURL)
 			
