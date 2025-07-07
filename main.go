@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sort"
 	"strings"
 	"syscall"
 	"time"
@@ -34,6 +35,9 @@ var (
 
 //go:embed all:music
 var musicFS embed.FS
+
+// Default speaker name from command line
+var defaultSpeaker string
 
 type SpeakerInfo struct {
 	Name string `json:"name"`
@@ -166,6 +170,7 @@ func setupRoutes() *http.ServeMux {
 	mux.HandleFunc("/api/sonos/discover", discoverHandler)
 	mux.HandleFunc("/api/sonos/speakers", speakersHandler)
 	mux.HandleFunc("/echo", echoHandler)
+	mux.HandleFunc("/sonos/preset/", presetHandler)
 
 	return mux
 }
@@ -204,6 +209,161 @@ func echoHandler(w http.ResponseWriter, r *http.Request) {
 	
 	w.WriteHeader(http.StatusOK)
 	w.Write(body)
+}
+
+func presetHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	
+	// Extract preset number from path
+	path := r.URL.Path
+	presetNum := strings.TrimPrefix(path, "/sonos/preset/")
+	if presetNum == "" || presetNum == path {
+		http.Error(w, "Invalid preset path", http.StatusBadRequest)
+		return
+	}
+	
+	// Parse JSON request body to get optional speaker name
+	var req struct {
+		Speaker string `json:"speaker"`
+	}
+	
+	if r.Body != nil {
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			// Body might be empty or invalid JSON, that's okay
+			log.Printf("Could not parse JSON body: %v", err)
+		}
+	}
+	
+	if req.Speaker == "" {
+		req.Speaker = defaultSpeaker
+	}
+	
+	log.Printf("Preset %s requested for speaker: %s", presetNum, req.Speaker)
+	
+	// Check if preset directory exists
+	presetDir := fmt.Sprintf("music/presets/%s", presetNum)
+	entries, err := musicFS.ReadDir(presetDir)
+	if err != nil {
+		log.Printf("Preset directory %s not found: %v", presetDir, err)
+		http.Error(w, fmt.Sprintf("Preset %s not found", presetNum), http.StatusNotFound)
+		return
+	}
+	
+	// Collect all MP3 files from the preset directory
+	var mp3Files []string
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasSuffix(strings.ToLower(entry.Name()), ".mp3") {
+			mp3Files = append(mp3Files, entry.Name())
+		}
+	}
+	
+	if len(mp3Files) == 0 {
+		log.Printf("No MP3 files found in preset %s", presetNum)
+		http.Error(w, fmt.Sprintf("No songs in preset %s", presetNum), http.StatusNotFound)
+		return
+	}
+	
+	// Sort files alphanumerically
+	sort.Strings(mp3Files)
+	
+	// Find the speaker in our cache
+	speaker, exists := speakerCache[req.Speaker]
+	if !exists {
+		http.Error(w, fmt.Sprintf("Speaker '%s' not found", req.Speaker), http.StatusNotFound)
+		return
+	}
+	
+	// Connect to Sonos device
+	locationURL := fmt.Sprintf("http://%s:1400/xml/device_description.xml", speaker.Address)
+	
+	svcMap, err := upnp.Describe(ssdp.Location(locationURL))
+	if err != nil {
+		log.Printf("Failed to describe Sonos device: %v", err)
+		http.Error(w, "Failed to connect to speaker", http.StatusInternalServerError)
+		return
+	}
+	
+	// Create Sonos connection with AV Transport and Content Directory services
+	s := sonos.MakeSonos(svcMap, nil, sonos.SVC_AV_TRANSPORT|sonos.SVC_CONTENT_DIRECTORY)
+	if s == nil {
+		log.Printf("Failed to create Sonos connection")
+		http.Error(w, "Failed to connect to speaker", http.StatusInternalServerError)
+		return
+	}
+	
+	// Clear the current queue first
+	log.Printf("Clearing current queue on %s", speaker.Name)
+	err = s.RemoveAllTracksFromQueue(0)
+	if err != nil {
+		log.Printf("Warning: Failed to clear queue: %v", err)
+	}
+	
+	// Add all MP3 files from the preset to the queue
+	scheme := "http"
+	if r.TLS != nil {
+		scheme = "https"
+	}
+	baseURL := fmt.Sprintf("%s://%s", scheme, resourceHost)
+	
+	var addedTracks int
+	for _, mp3File := range mp3Files {
+		songURL := fmt.Sprintf("%s/music/presets/%s/%s", baseURL, presetNum, mp3File)
+		
+		log.Printf("Adding track to queue: %s", songURL)
+		
+		// Extract filename from URL for metadata
+		songTitle := strings.TrimSuffix(mp3File, filepath.Ext(mp3File))
+		
+		// Add URI to queue with filename as metadata
+		req := &upnp.AddURIToQueueIn{
+			EnqueuedURI:         songURL,
+			EnqueuedURIMetaData: fmt.Sprintf("<DIDL-Lite><item><dc:title>%s</dc:title></item></DIDL-Lite>", songTitle),
+			DesiredFirstTrackNumberEnqueued: 0,
+			EnqueueAsNext: false,
+		}
+		
+		if out, err := s.AddURIToQueue(0, req); err != nil {
+			log.Printf("Failed to add track %s to queue: %v", songURL, err)
+			http.Error(w, "Failed to add tracks to queue", http.StatusInternalServerError)
+			return
+		} else {
+			log.Printf("Added track %s at position %d", songURL, out.FirstTrackNumberEnqueued)
+			addedTracks++
+		}
+	}
+	
+	log.Printf("Added %d tracks from preset %s to queue, setting up playback from queue", addedTracks, presetNum)
+	
+	// Get queue metadata to obtain the correct playable URI
+	if data, err := s.GetMetadata(sonos.ObjectID_Queue_AVT_Instance_0); err != nil {
+		log.Printf("Failed to get queue metadata: %v", err)
+		http.Error(w, "Failed to get queue metadata", http.StatusInternalServerError)
+		return
+	} else {
+		// Use the actual resource URI from metadata
+		if err := s.SetAVTransportURI(0, data[0].Res(), ""); err != nil {
+			log.Printf("Failed to set queue URI: %v", err)
+			http.Error(w, "Failed to set queue for playback", http.StatusInternalServerError)
+			return
+		}
+	}
+	
+	log.Printf("Queue URI set successfully, starting playback...")
+	
+	// Start playback from the queue
+	err = s.Play(0, "1")
+	if err != nil {
+		log.Printf("Failed to start playback: %v", err)
+		http.Error(w, "Failed to start playback", http.StatusInternalServerError)
+		return
+	}
+	
+	log.Printf("Successfully started playing preset %s on %s", presetNum, speaker.Name)
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(fmt.Sprintf("Playing preset %s on %s\n", presetNum, speaker.Name)))
 }
 
 func playlistHandler(w http.ResponseWriter, r *http.Request) {
@@ -287,8 +447,7 @@ func playHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	
 	if req.Speaker == "" {
-		http.Error(w, "Speaker name is required", http.StatusBadRequest)
-		return
+		req.Speaker = defaultSpeaker
 	}
 	
 	log.Printf("Play requested for speaker: %s", req.Speaker)
@@ -432,8 +591,7 @@ func queueHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.Speaker == "" {
-		http.Error(w, "Speaker name is required", http.StatusBadRequest)
-		return
+		req.Speaker = defaultSpeaker
 	}
 
 	log.Printf("Queue requested for speaker: %s", req.Speaker)
@@ -497,9 +655,61 @@ func pauseHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	log.Println("Pause requested")
+	
+	// Parse JSON request body to get optional speaker name
+	var req struct {
+		Speaker string `json:"speaker"`
+	}
+	
+	if r.Body != nil {
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			// Body might be empty or invalid JSON, that's okay
+			log.Printf("Could not parse JSON body: %v", err)
+		}
+	}
+	
+	if req.Speaker == "" {
+		req.Speaker = defaultSpeaker
+	}
+	
+	log.Printf("Pause requested for speaker: %s", req.Speaker)
+	
+	// Find the speaker in our cache
+	speaker, exists := speakerCache[req.Speaker]
+	if !exists {
+		http.Error(w, fmt.Sprintf("Speaker '%s' not found", req.Speaker), http.StatusNotFound)
+		return
+	}
+	
+	// Connect to Sonos device
+	locationURL := fmt.Sprintf("http://%s:1400/xml/device_description.xml", speaker.Address)
+	
+	svcMap, err := upnp.Describe(ssdp.Location(locationURL))
+	if err != nil {
+		log.Printf("Failed to describe Sonos device: %v", err)
+		http.Error(w, "Failed to connect to speaker", http.StatusInternalServerError)
+		return
+	}
+	
+	// Create Sonos connection with AV Transport service
+	s := sonos.MakeSonos(svcMap, nil, sonos.SVC_AV_TRANSPORT)
+	if s == nil {
+		log.Printf("Failed to create Sonos connection")
+		http.Error(w, "Failed to connect to speaker", http.StatusInternalServerError)
+		return
+	}
+	
+	// Pause playback
+	err = s.Pause(0)
+	if err != nil {
+		log.Printf("Failed to pause playback: %v", err)
+		http.Error(w, "Failed to pause playback", http.StatusInternalServerError)
+		return
+	}
+	
+	log.Printf("Successfully paused playback on %s", speaker.Name)
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Paused\n"))
+	w.Write([]byte(fmt.Sprintf("Paused %s\n", speaker.Name)))
 }
 
 func restartPlaylistHandler(w http.ResponseWriter, r *http.Request) {
@@ -507,9 +717,69 @@ func restartPlaylistHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	log.Println("Restart playlist requested")
+	
+	// Parse JSON request body to get optional speaker name
+	var req struct {
+		Speaker string `json:"speaker"`
+	}
+	
+	if r.Body != nil {
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			// Body might be empty or invalid JSON, that's okay
+			log.Printf("Could not parse JSON body: %v", err)
+		}
+	}
+	
+	if req.Speaker == "" {
+		req.Speaker = defaultSpeaker
+	}
+	
+	log.Printf("Restart playlist requested for speaker: %s", req.Speaker)
+	
+	// Find the speaker in our cache
+	speaker, exists := speakerCache[req.Speaker]
+	if !exists {
+		http.Error(w, fmt.Sprintf("Speaker '%s' not found", req.Speaker), http.StatusNotFound)
+		return
+	}
+	
+	// Connect to Sonos device
+	locationURL := fmt.Sprintf("http://%s:1400/xml/device_description.xml", speaker.Address)
+	
+	svcMap, err := upnp.Describe(ssdp.Location(locationURL))
+	if err != nil {
+		log.Printf("Failed to describe Sonos device: %v", err)
+		http.Error(w, "Failed to connect to speaker", http.StatusInternalServerError)
+		return
+	}
+	
+	// Create Sonos connection with AV Transport service
+	s := sonos.MakeSonos(svcMap, nil, sonos.SVC_AV_TRANSPORT)
+	if s == nil {
+		log.Printf("Failed to create Sonos connection")
+		http.Error(w, "Failed to connect to speaker", http.StatusInternalServerError)
+		return
+	}
+	
+	// Seek to the beginning of the current track (position 0)
+	err = s.Seek(0, "TRACK_NR", "1")
+	if err != nil {
+		log.Printf("Failed to restart playlist: %v", err)
+		http.Error(w, "Failed to restart playlist", http.StatusInternalServerError)
+		return
+	}
+	
+	// Start playing from the beginning
+	err = s.Play(0, "1")
+	if err != nil {
+		log.Printf("Failed to start playback: %v", err)
+		http.Error(w, "Failed to start playback", http.StatusInternalServerError)
+		return
+	}
+	
+	log.Printf("Successfully restarted playlist on %s", speaker.Name)
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Playlist restarted\n"))
+	w.Write([]byte(fmt.Sprintf("Playlist restarted on %s\n", speaker.Name)))
 }
 
 func discoverSonosDevices() ([]SpeakerInfo, error) {
@@ -731,11 +1001,13 @@ func main() {
 		showVersion    = flag.Bool("version", false, "show version information")
 		addr           = flag.String("addr", ":8080", "server listen address (interface:port)")
 		resourceHostPtr = flag.String("resource-host", defaultResourceHost, "host:port for external devices to fetch resources from this server")
+		defaultSpeakerPtr = flag.String("default-speaker", "Kids Room", "default speaker name to use when not specified")
 	)
 	flag.Parse()
 	
-	// Set global resourceHost variable
+	// Set global variables
 	resourceHost = *resourceHostPtr
+	defaultSpeaker = *defaultSpeakerPtr
 
 	if *showVersion {
 		printVersion()
