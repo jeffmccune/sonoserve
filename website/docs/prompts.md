@@ -147,3 +147,28 @@ Removed the `raw_contents` field from the queue handler response in main.go:649.
 - `queue_items`: Array of detailed queue item information
 
 This simplifies the response and removes the always-empty raw_contents field.
+
+## Turn 8 - Create Session End Documentation
+
+> Thanks. Write website/docs/tasks/session-end.md which describes the steps to end a coding session and prepare for a new one. You are the intended audience of this file. Place the following instructions into the file:
+>
+> 1. Rename website/docs/prompts.md to website/docs/session-X.md (where X is the next session number).
+> 2. Create website/docs/prompts.md with an h1 named "Session Y - Prompts and Responses" (where Y is the next session number after X).
+> 3. Add an example of my prompt: "> My prompt here."
+> 4. Add an example of your response: "Your response here."
+> 5. Each prompt and response should be in a h2 section named like "Turn Z - Summary of turn here" where Z is the turn number for the session (starting at 1).
+> 6. Update the session-X.md file with the last prompt and response of the session (not the new prompts.md file).
+> 7. Commit the changes.
+>
+> Once you've added theses instructions to the session-end.md file, update prompts md for the current session and commit.
+
+I'll create the session-end.md file with the instructions for ending a coding session.
+
+Created `website/docs/tasks/session-end.md` with comprehensive instructions for ending coding sessions:
+
+- **File structure**: Rename prompts.md to session-X.md, create new prompts.md for next session
+- **Formatting guidelines**: Turn headers, blockquotes for prompts, plain text for responses  
+- **Workflow example**: Shows how to transition from session 4 to session 5
+- **Commit process**: Add both files and commit with descriptive message
+
+The file provides clear step-by-step instructions for Claude Code to follow when transitioning between coding sessions.
