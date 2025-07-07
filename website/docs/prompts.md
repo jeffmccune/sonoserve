@@ -76,3 +76,35 @@ Playing preset 2 on Kids Room
 ```
 
 The URL encoding fix resolved the issue with file names containing spaces or special characters.
+
+## Turn 5 - Update Controller Page
+
+> Thanks. Now update the controller page to exercise our endpoints.
+>
+> 1. Add a Presets section under the Music Controls section with 10 buttons labeled 0 thru 9. Wire each button to the corresponding preset endpoint. Pass the selected speaker.
+> 2. Add a Get Speaker Queue section below the Music Controls section with a button to get the current queue from the selected speaker. Display the raw json result formatted nicely with color output.
+> 3. Rebuild the server.
+> 4. Update prompts and commit.
+
+I'll update the controller page to add the preset buttons and queue display functionality.
+
+Added to controller.md:
+
+1. **Presets section** - 10 numbered buttons (0-9) that call `/sonos/preset/{num}` with the selected speaker
+   - Visual feedback during loading (⏳ indicator)
+   - Success/error alerts with emojis
+   - Styled as grid of buttons
+
+2. **Get Speaker Queue section** - Button to fetch and display the current queue
+   - Calls `/sonos/queue` endpoint with selected speaker
+   - Displays formatted JSON with syntax highlighting:
+     - Property names in blue (#0969da)
+     - String values in dark blue (#0a3069)
+     - Numbers in red (#cf222e)
+     - Booleans in purple (#8250df)
+     - Null values in gray (#6e7781)
+   - Pre-formatted display with code-style background
+
+3. **Updated pause and restart handlers** - Now include speaker parameter in requests
+
+The controller page now provides full control over presets and queue inspection.

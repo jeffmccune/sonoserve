@@ -212,19 +212,39 @@ Select which speaker to control:
   </button>
   <button 
     onClick={() => {
+      const selectedSpeaker = document.querySelector('input[name="speaker"]:checked');
+      if (!selectedSpeaker) {
+        alert('Please select a speaker first');
+        return;
+      }
+      
       const server = document.getElementById('serverInput').value || 'localhost:8080';
       const url = (window.location.host === server) 
         ? '/sonos/pause' 
         : `http://${server}/sonos/pause`;
-      fetch(url, {method: 'POST'})
+      
+      fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          speaker: selectedSpeaker.value
+        })
+      })
         .then(response => {
           if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
           }
+          return response.text();
+        })
+        .then(result => {
+          console.log('Pause result:', result);
+          alert(`✅ ${result}`);
         })
         .catch(error => {
           console.error('Pause error:', error);
-          alert(`Failed to pause: ${error.message}`);
+          alert(`❌ Failed to pause: ${error.message}`);
         });
     }} 
     style={{marginRight: '10px'}}
@@ -233,22 +253,212 @@ Select which speaker to control:
   </button>
   <button 
     onClick={() => {
+      const selectedSpeaker = document.querySelector('input[name="speaker"]:checked');
+      if (!selectedSpeaker) {
+        alert('Please select a speaker first');
+        return;
+      }
+      
       const server = document.getElementById('serverInput').value || 'localhost:8080';
       const url = (window.location.host === server) 
         ? '/sonos/restart-playlist' 
         : `http://${server}/sonos/restart-playlist`;
-      fetch(url, {method: 'POST'})
+      
+      fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          speaker: selectedSpeaker.value
+        })
+      })
         .then(response => {
           if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
           }
+          return response.text();
+        })
+        .then(result => {
+          console.log('Restart result:', result);
+          alert(`✅ ${result}`);
         })
         .catch(error => {
           console.error('Restart playlist error:', error);
-          alert(`Failed to restart playlist: ${error.message}`);
+          alert(`❌ Failed to restart playlist: ${error.message}`);
         });
     }}
   >
     🔄 Restart Playlist
   </button>
+</div>
+
+## Presets
+
+Quick access to preset playlists:
+
+<div style={{marginTop: '20px', marginBottom: '20px'}}>
+  {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
+    <button
+      key={num}
+      onClick={() => {
+        const selectedSpeaker = document.querySelector('input[name="speaker"]:checked');
+        if (!selectedSpeaker) {
+          alert('Please select a speaker first');
+          return;
+        }
+        
+        const server = document.getElementById('serverInput').value || 'localhost:8080';
+        const url = (window.location.host === server) 
+          ? `/sonos/preset/${num}` 
+          : `http://${server}/sonos/preset/${num}`;
+        
+        const button = event.target;
+        button.disabled = true;
+        button.textContent = `⏳ ${num}`;
+        
+        fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            speaker: selectedSpeaker.value
+          })
+        })
+          .then(response => {
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.text();
+          })
+          .then(result => {
+            console.log(`Preset ${num} result:`, result);
+            alert(`✅ ${result}`);
+          })
+          .catch(error => {
+            console.error(`Preset ${num} error:`, error);
+            alert(`❌ Failed to play preset ${num}: ${error.message}`);
+          })
+          .finally(() => {
+            button.disabled = false;
+            button.textContent = num;
+          });
+      }}
+      style={{
+        margin: '5px',
+        padding: '10px 20px',
+        fontSize: '18px',
+        fontWeight: 'bold',
+        backgroundColor: '#f0f0f0',
+        border: '1px solid #ccc',
+        borderRadius: '4px',
+        cursor: 'pointer',
+        minWidth: '50px'
+      }}
+    >
+      {num}
+    </button>
+  ))}
+</div>
+
+## Get Speaker Queue
+
+View the current queue on the selected speaker:
+
+<div style={{marginTop: '20px'}}>
+  <button 
+    onClick={() => {
+      const selectedSpeaker = document.querySelector('input[name="speaker"]:checked');
+      if (!selectedSpeaker) {
+        alert('Please select a speaker first');
+        return;
+      }
+      
+      const server = document.getElementById('serverInput').value || 'localhost:8080';
+      const url = (window.location.host === server) 
+        ? '/sonos/queue' 
+        : `http://${server}/sonos/queue`;
+      
+      const button = event.target;
+      const resultDiv = document.getElementById('queueResult');
+      button.disabled = true;
+      button.textContent = 'Loading Queue...';
+      resultDiv.innerHTML = '<em>Fetching queue...</em>';
+      
+      fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          speaker: selectedSpeaker.value
+        })
+      })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          return response.json();
+        })
+        .then(data => {
+          console.log('Queue data:', data);
+          
+          // Format the JSON with syntax highlighting
+          const formattedJson = JSON.stringify(data, null, 2)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"([^"]+)":/g, '<span style="color: #0969da;">"$1"</span>:')
+            .replace(/: "([^"]*)"/g, ': <span style="color: #0a3069;">"$1"</span>')
+            .replace(/: (\d+)/g, ': <span style="color: #cf222e;">$1</span>')
+            .replace(/: (true|false)/g, ': <span style="color: #8250df;">$1</span>')
+            .replace(/: (null)/g, ': <span style="color: #6e7781;">$1</span>');
+          
+          resultDiv.innerHTML = `
+            <h4>Queue for ${selectedSpeaker.value}:</h4>
+            <pre style="
+              background-color: #f6f8fa;
+              border: 1px solid #d1d9e0;
+              border-radius: 6px;
+              padding: 16px;
+              overflow-x: auto;
+              font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+              font-size: 12px;
+              line-height: 1.45;
+            ">${formattedJson}</pre>
+          `;
+        })
+        .catch(error => {
+          console.error('Queue error:', error);
+          resultDiv.innerHTML = `<em style="color: red;">Error: ${error.message}</em>`;
+        })
+        .finally(() => {
+          button.disabled = false;
+          button.textContent = 'Get Queue';
+        });
+    }}
+    style={{
+      padding: '10px 20px',
+      fontSize: '16px',
+      backgroundColor: '#0969da',
+      color: 'white',
+      border: 'none',
+      borderRadius: '4px',
+      cursor: 'pointer'
+    }}
+  >
+    Get Queue
+  </button>
+  
+  <div id="queueResult" style={{
+    marginTop: '20px',
+    padding: '20px',
+    border: '1px solid #ddd',
+    borderRadius: '4px',
+    minHeight: '100px',
+    backgroundColor: '#fafbfc'
+  }}>
+    <em>Click "Get Queue" to view the current queue</em>
+  </div>
 </div>
