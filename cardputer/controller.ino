@@ -132,8 +132,9 @@ void setupWiFi() {
   M5Cardputer.Display.println("Network: " + selectedSSID);
   M5Cardputer.Display.setTextSize(1);
   M5Cardputer.Display.println("\nEnter password:");
-  M5Cardputer.Display.println("Press Enter to confirm");
+  M5Cardputer.Display.println("Press Enter/Space to confirm");
   M5Cardputer.Display.println("Press `/~ to confirm");
+  M5Cardputer.Display.println("Or try fn+M for Enter");
   M5Cardputer.Display.println("Press ESC to cancel");
   
   String password = "";
@@ -145,50 +146,38 @@ void setupWiFi() {
       if (M5Cardputer.Keyboard.isPressed()) {
         Keyboard_Class::KeysState status = M5Cardputer.Keyboard.keysState();
         
-        // Check for Enter key using multiple methods
+        // Check for Enter key
         bool enterPressed = false;
         
-        // Method 1: Check the raw key value
-        uint8_t key = M5Cardputer.Keyboard.getKey();
-        if (key != 0) {
-          // Debug: Show raw key value
-          M5Cardputer.Display.fillRect(0, 120, 240, 20, BLACK);
-          M5Cardputer.Display.setCursor(0, 120);
-          M5Cardputer.Display.setTextSize(1);
-          M5Cardputer.Display.print("Raw: ");
-          M5Cardputer.Display.print(key);
-          M5Cardputer.Display.print(" (0x");
-          M5Cardputer.Display.print(key, HEX);
-          M5Cardputer.Display.print(")");
-          M5Cardputer.Display.setTextSize(2);
-          
-          // Check for Enter key (commonly 0x0D, 0x0A, or specific M5 codes)
-          if (key == 0x0D || key == 0x0A || key == 13 || key == 10 || key == 0x5A) {
-            enterPressed = true;
-          }
-        }
-        
-        // Method 2: Check the word array as before
+        // Check for specific key combinations
+        // On M5Cardputer, Enter might be fn+Enter or a specific key combo
         for (auto i : status.word) {
-          // Debug: Show word array values
+          // Debug: Show key values
           if (i != 0) {
-            M5Cardputer.Display.fillRect(0, 140, 240, 20, BLACK);
-            M5Cardputer.Display.setCursor(0, 140);
+            M5Cardputer.Display.fillRect(0, 120, 240, 40, BLACK);
+            M5Cardputer.Display.setCursor(0, 120);
             M5Cardputer.Display.setTextSize(1);
-            M5Cardputer.Display.print("Word: ");
+            M5Cardputer.Display.print("Key: ");
             M5Cardputer.Display.print(i);
-            M5Cardputer.Display.print(" '");
+            M5Cardputer.Display.print(" (0x");
+            M5Cardputer.Display.print(i, HEX);
+            M5Cardputer.Display.print(") '");
             if (i >= 32 && i <= 126) M5Cardputer.Display.print((char)i);
             M5Cardputer.Display.print("'");
             M5Cardputer.Display.setTextSize(2);
           }
           
-          if (i == 0x0D || i == 0x0A || i == '\r' || i == '\n' || i == 13 || i == 10) {
+          // Check various Enter key possibilities
+          if (i == 0x0D || i == 0x0A || i == '\r' || i == '\n' || 
+              i == 13 || i == 10 || i == 0x5A) {
             enterPressed = true;
-          } else if (i == 0x1B || key == 0x1B) {  // ESC key
-            // Cancel and restart
+          } 
+          // Check for ESC key
+          else if (i == 0x1B || i == 27) {
             ESP.restart();
-          } else if (i == 0x08 || i == 0x7F || key == 0x08 || key == 0x7F) {  // Backspace or Delete
+          }
+          // Check for Backspace/Delete
+          else if (i == 0x08 || i == 0x7F || i == 8 || i == 127) {
             if (password.length() > 0) {
               password.remove(password.length() - 1);
               // Update display
@@ -196,9 +185,23 @@ void setupWiFi() {
               M5Cardputer.Display.setCursor(0, 80);
               M5Cardputer.Display.print(password);
             }
-          } else if (i == '`' || i == '~') {  // Backtick or tilde as alternate confirm
+          }
+          // Backtick or tilde as alternate confirm
+          else if (i == '`' || i == '~') {
             enterPressed = true;
-          } else if (i >= 32 && i <= 126) {  // Printable characters
+          }
+          // Space bar as another alternate confirm (common on small keyboards)
+          else if (i == ' ' && password.length() > 0) {
+            // Only accept space as confirm if password has been entered
+            M5Cardputer.Display.fillRect(0, 140, 240, 20, BLACK);
+            M5Cardputer.Display.setCursor(0, 140);
+            M5Cardputer.Display.setTextSize(1);
+            M5Cardputer.Display.print("Space detected - confirming");
+            M5Cardputer.Display.setTextSize(2);
+            enterPressed = true;
+          }
+          // Regular printable characters
+          else if (i >= 32 && i <= 126) {
             password += (char)i;
             // Update display
             M5Cardputer.Display.fillRect(0, 80, 240, 40, BLACK);
@@ -207,7 +210,18 @@ void setupWiFi() {
           }
         }
         
-        // If Enter was detected by any method, save and connect
+        // Also check if fn key is pressed with other keys
+        if (status.fn && !enterPressed) {
+          for (auto i : status.word) {
+            // fn+m might be Enter on some CardPuter layouts
+            if (i == 'm' || i == 'M') {
+              enterPressed = true;
+              break;
+            }
+          }
+        }
+        
+        // If Enter was detected, save and connect
         if (enterPressed) {
           preferences.putString("ssid", selectedSSID);
           preferences.putString("password", password);
