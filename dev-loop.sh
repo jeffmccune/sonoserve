@@ -21,7 +21,7 @@ while true; do
     
     # Start server in background
     echo "Starting server..."
-    ./sonoserve 2>sonoserve.stderr.log &
+    ./bin/sonoserve 2>sonoserve.stderr.log &
     SERVER_PID=$!
     
     # Wait for server to be ready

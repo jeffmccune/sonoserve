@@ -18,3 +18,9 @@ Usage: `./dev-loop.sh` then `echo rebuild > /tmp/sonoserve-dev-loop.fifo` to tri
 > Remember to update prompts.md and commit each iteration.
 
 Updating prompts.md with the latest conversation and committing changes.
+
+## Turn 3 - Fix dev-loop.sh executable path
+
+> Thanks but the dev-loop.sh script calls the wrong executable, it should be ./bin/sonoserve
+
+Fixed dev-loop.sh to use the correct executable path `./bin/sonoserve`.
