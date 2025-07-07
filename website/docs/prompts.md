@@ -42,3 +42,9 @@ Modified the health endpoint to:
 - Return 200 OK once initial discovery is complete
 - Added global flag `initialDiscoveryComplete` to track discovery status
 - Set flag to true after startup discovery finishes
+
+## Turn 6 - Create dev-rebuild.sh script
+
+> Add a dev-rebuild.sh script that executes echo rebuild > /tmp/sonoserve-dev-loop.fifo so you can execute this script without prompting me.
+
+Created `dev-rebuild.sh` script that triggers a rebuild by sending "rebuild" to the FIFO.
