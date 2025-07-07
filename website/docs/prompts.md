@@ -32,3 +32,13 @@ Fixed dev-loop.sh to use the correct executable path `./bin/sonoserve`.
 Updated dev-loop.sh to write status to server.status file:
 - Writes "rebuilding" when starting build or receiving rebuild command
 - Writes "ready" when server health check passes
+
+## Turn 5 - Modify health endpoint to wait for initial discovery
+
+> Modify the ready endpoint to wait for initial discovery to complete.
+
+Modified the health endpoint to:
+- Return 503 Service Unavailable with message "Initial discovery in progress" until discovery completes
+- Return 200 OK once initial discovery is complete
+- Added global flag `initialDiscoveryComplete` to track discovery status
+- Set flag to true after startup discovery finishes

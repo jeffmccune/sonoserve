@@ -51,6 +51,9 @@ var speakerCache = make(map[string]Speaker)
 // Global variables for server configuration
 var resourceHost string
 
+// Global flag to track if initial discovery is complete
+var initialDiscoveryComplete = false
+
 // getLocalIP returns the local network IP address (non-loopback)
 func getLocalIP() string {
 	interfaces, err := net.Interfaces()
@@ -174,6 +177,11 @@ func rootRedirectHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
+	if !initialDiscoveryComplete {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		w.Write([]byte("Initial discovery in progress\n"))
+		return
+	}
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("OK\n"))
 }
@@ -645,6 +653,9 @@ func main() {
 				log.Printf("  - %s at %s", speaker.Name, speaker.IP)
 			}
 		}
+		// Mark initial discovery as complete
+		initialDiscoveryComplete = true
+		log.Println("Initial discovery complete, health endpoint now ready")
 	}()
 
 	mux := setupRoutes()

@@ -56,3 +56,14 @@ The system uses a client-server model where the CardPuter sends HTTP requests to
 
 - Remember to update ./website/docs/prompts.md after every turn in the conversation, especially after context is compacted
 - Remember to commit prompts.md after every turn in the conversation
+
+## Server Testing Workflow
+
+- After making changes:
+  1. Trigger a server rebuild
+  2. Read server.status until it contains the string "ready"
+  3. Perform tests against the running server
+
+## Development Tricks
+
+- Trigger a server rebuild by executing Bash(echo rebuild > /tmp/sonoserve-dev-loop.fifo)
