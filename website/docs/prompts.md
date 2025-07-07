@@ -17,3 +17,9 @@ Added note about the apostrophe character issue in the speaker name.
 > I've renamed the speaker, rebuild the server and test the play endpoint. If you get a 500 error from the play endpoint then read the stderr log file and pinpoint where the error occured.
 
 Server rebuilt successfully. The play endpoint now returns "Invalid JSON request" instead of a 500 error. The stderr log shows speaker discovery is working - it found "Kids Room" (renamed without the special apostrophe). The endpoint expects JSON in the request body.
+
+## Turn 4 - Test play on Kids Room and troubleshoot
+
+> Try to play on "Kids Room" and troubleshoot if it fails by reading the sonoserve.stderr.log and coming up with a plan. Write the plan to ./website/docs/play-issue.md with an h1 of "Plan to fix Play endpoint"
+
+Play endpoint tested on "Kids Room" - failed with error 714 "Failed to set queue URI". Created troubleshooting plan in ./website/docs/play-issue.md identifying the likely cause as incorrect MIME type for the MP3 file.
