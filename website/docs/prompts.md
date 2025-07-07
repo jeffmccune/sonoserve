@@ -134,3 +134,16 @@ All buttons:
 - Use setTimeout to revert text after 2 seconds
 - Preserve finally block for re-enabling buttons
 - Keep console.log for debugging
+
+## Turn 7 - Clean Up Queue Response
+
+> Thanks. 1. Remove the raw_contents field from the queue endpoint response, it's always empty. 2. Update prompts and commit. 3. Rebuild the server.
+
+I'll remove the raw_contents field from the queue endpoint response since it's unnecessary.
+
+Removed the `raw_contents` field from the queue handler response in main.go:649. The queue endpoint now returns a cleaner JSON structure with only:
+- `speaker`: The speaker name
+- `queue_length`: Number of items in queue  
+- `queue_items`: Array of detailed queue item information
+
+This simplifies the response and removes the always-empty raw_contents field.

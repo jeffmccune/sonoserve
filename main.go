@@ -646,7 +646,6 @@ func queueHandler(w http.ResponseWriter, r *http.Request) {
 		"speaker":        req.Speaker,
 		"queue_length":   len(queueContents),
 		"queue_items":    queueItems,
-		"raw_contents":   queueContents, // Keep raw data for debugging if needed
 	})
 }
 
