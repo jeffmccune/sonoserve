@@ -57,3 +57,31 @@ Key findings:
 - Created a complete ASCII character table with decimal, hexadecimal, and character representations
 - Included implementation notes for ESP32 and example code
 - Added references to relevant documentation and libraries
+
+## Turn 4 - Add power management features to CardPuter
+
+> We need to turn the screen off to save battery life. Modify the cardputer/controller.ino file to add the following behaviors:
+> 
+> 1. Turn the screen off after 30 seconds of inactivity. Refresh the screen if any key is pressed.
+> 2. Display the battery life as the last line in the update display.
+> 
+> Note this file is an Arduino IDE 2.3.6 file for an esp32s3 device.
+
+I successfully modified the CardPuter controller to add power management features:
+
+**Screen Timeout (30 seconds):**
+- Added variables to track screen state and last activity time
+- Screen dims to brightness 0 after 30 seconds of inactivity
+- Any keypress restores brightness and refreshes display
+- First keypress after timeout only wakes screen (doesn't trigger actions)
+
+**Battery Display:**
+- Added `displayBatteryInfo()` function to show battery level on bottom line
+- Color-coded display: Green (>50%), Yellow (20-50%), Red (<20%)
+- Shows charging status when connected to power
+- Integrated into the main ready screen display
+
+**Activity Tracking:**
+- Reset activity timer on all user interactions
+- Timer resets in main loop, preset requests, and control requests
+- Ensures screen stays on during active use

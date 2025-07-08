@@ -11,6 +11,11 @@ Preferences preferences;
 String storedSSID = "";
 String storedPassword = "";
 
+// Screen timeout variables
+unsigned long lastActivityTime = 0;
+const unsigned long SCREEN_TIMEOUT = 30000; // 30 seconds
+bool screenOn = true;
+
 void setup() {
   // Initialize M5Cardputer
   auto cfg = M5.config();
@@ -68,6 +73,9 @@ void setup() {
   
   // Display ready indicator
   showReady();
+  
+  // Initialize last activity time
+  lastActivityTime = millis();
 }
 
 void setupWiFi() {
@@ -287,14 +295,67 @@ void showReady() {
   M5Cardputer.Display.println("; . Volume");
   M5Cardputer.Display.println("P   Play/Pause");
   M5Cardputer.Display.println("M   Mute");
+  
+  // Display battery info on last line
+  displayBatteryInfo();
+}
+
+void displayBatteryInfo() {
+  // Move to bottom of screen
+  M5Cardputer.Display.setCursor(0, M5Cardputer.Display.height() - 16);
+  M5Cardputer.Display.setTextSize(1);
+  
+  // Get battery level (0-100%)
+  int batteryLevel = M5Cardputer.Power.getBatteryLevel();
+  
+  // Set color based on battery level
+  if (batteryLevel > 50) {
+    M5Cardputer.Display.setTextColor(GREEN, BLACK);
+  } else if (batteryLevel > 20) {
+    M5Cardputer.Display.setTextColor(YELLOW, BLACK);
+  } else {
+    M5Cardputer.Display.setTextColor(RED, BLACK);
+  }
+  
+  // Display battery info
+  M5Cardputer.Display.print("Battery: ");
+  M5Cardputer.Display.print(batteryLevel);
+  M5Cardputer.Display.print("%");
+  
+  // Check if charging
+  if (M5Cardputer.Power.isCharging()) {
+    M5Cardputer.Display.print(" [Charging]");
+  }
+  
+  // Reset text color and size
+  M5Cardputer.Display.setTextColor(WHITE, BLACK);
+  M5Cardputer.Display.setTextSize(2);
 }
 
 void loop() {
   M5Cardputer.update();
   
+  // Check for screen timeout
+  if (screenOn && (millis() - lastActivityTime > SCREEN_TIMEOUT)) {
+    // Turn off screen
+    M5Cardputer.Display.setBrightness(0);
+    screenOn = false;
+  }
+  
   // Check for keypress
   if (M5Cardputer.Keyboard.isChange()) {
     if (M5Cardputer.Keyboard.isPressed()) {
+      // Reset activity timer
+      lastActivityTime = millis();
+      
+      // Turn screen back on if it was off
+      if (!screenOn) {
+        M5Cardputer.Display.setBrightness(128); // Default brightness
+        screenOn = true;
+        showReady(); // Refresh display
+        return; // Don't process this keypress, just wake up
+      }
+      
       Keyboard_Class::KeysState status = M5Cardputer.Keyboard.keysState();
       
       // Check for keys
@@ -343,6 +404,9 @@ void loop() {
 }
 
 void sendPresetRequest(String preset) {
+  // Reset activity timer
+  lastActivityTime = millis();
+  
   M5Cardputer.Display.clear();
   M5Cardputer.Display.setCursor(0, 0);
   M5Cardputer.Display.println("Playing preset " + preset + "...");
@@ -384,6 +448,9 @@ void sendPresetRequest(String preset) {
 }
 
 void sendControlRequest(String endpoint, String message) {
+  // Reset activity timer
+  lastActivityTime = millis();
+  
   M5Cardputer.Display.clear();
   M5Cardputer.Display.setCursor(0, 0);
   M5Cardputer.Display.println(message);
