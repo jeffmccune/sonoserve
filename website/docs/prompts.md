@@ -77,7 +77,7 @@ I successfully modified the CardPuter controller to add power management feature
 
 **Battery Display:**
 - Added `displayBatteryInfo()` function to show battery level on bottom line
-- Color-coded display: Green (>50%), Yellow (20-50%), Red (<20%)
+- Color-coded display: Green (greater than 50%), Yellow (20-50%), Red (less than 20%)
 - Shows charging status when connected to power
 - Integrated into the main ready screen display
 
