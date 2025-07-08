@@ -282,11 +282,11 @@ void showReady() {
   M5Cardputer.Display.print("READY ");
   M5Cardputer.Display.setTextColor(WHITE, BLACK);
   M5Cardputer.Display.println(speaker);
-  M5Cardputer.Display.println("1-9: Presets");
-  M5Cardputer.Display.println("←/→: Prev/Next");
-  M5Cardputer.Display.println("↑/↓: Volume");
-  M5Cardputer.Display.println("P: Play/Pause");
-  M5Cardputer.Display.println("M: Mute");
+  M5Cardputer.Display.println("1-9 Presets");
+  M5Cardputer.Display.println(", / Prev/Next");
+  M5Cardputer.Display.println("; . Volume");
+  M5Cardputer.Display.println("P   Play/Pause");
+  M5Cardputer.Display.println("M   Mute");
 }
 
 void loop() {
