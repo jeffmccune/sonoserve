@@ -301,10 +301,6 @@ void showReady() {
 }
 
 void displayBatteryInfo() {
-  // Move to bottom of screen
-  M5Cardputer.Display.setCursor(0, M5Cardputer.Display.height() - 16);
-  M5Cardputer.Display.setTextSize(1);
-  
   // Get battery level (0-100%)
   int batteryLevel = M5Cardputer.Power.getBatteryLevel();
   
@@ -317,19 +313,13 @@ void displayBatteryInfo() {
     M5Cardputer.Display.setTextColor(RED, BLACK);
   }
   
-  // Display battery info
+  // Display battery info with text size 2
   M5Cardputer.Display.print("Battery: ");
   M5Cardputer.Display.print(batteryLevel);
-  M5Cardputer.Display.print("%");
+  M5Cardputer.Display.println("%");
   
-  // Check if charging
-  if (M5Cardputer.Power.isCharging()) {
-    M5Cardputer.Display.print(" [Charging]");
-  }
-  
-  // Reset text color and size
+  // Reset text color
   M5Cardputer.Display.setTextColor(WHITE, BLACK);
-  M5Cardputer.Display.setTextSize(2);
 }
 
 void loop() {

@@ -85,3 +85,20 @@ I successfully modified the CardPuter controller to add power management feature
 - Reset activity timer on all user interactions
 - Timer resets in main loop, preset requests, and control requests
 - Ensures screen stays on during active use
+
+## Turn 5 - Fix battery display issues
+
+> Thanks, but set the text size to 2 for the battery level, and don't bother putting it at the bottom of the screen, just display it last. Also remove or fix the charging indicator, it's always on even when the USB cable is disconnected. Remember to update prompts and commit.
+
+I fixed the battery display issues:
+
+**Text Size and Positioning:**
+- Set battery display text size to 2 (same as other text)
+- Removed bottom screen positioning logic
+- Battery info now displays last in natural flow after other menu items
+
+**Charging Indicator:**
+- Removed the charging indicator completely since `M5Cardputer.Power.isCharging()` was incorrectly reporting charging status
+- Now shows just "Battery: XX%" without charging status
+
+The battery display is now cleaner and consistent with the rest of the interface.
