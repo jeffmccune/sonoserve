@@ -5,7 +5,8 @@
 
 const char* speaker = "Kids Room";
 const char* body = "{\"speaker\": \"Kids Room\"}";
-const char* serverBase = "http://192.168.4.88:8080/sonos/";
+// const char* serverBase = "http://192.168.4.88:8080/sonos/";
+const char* serverBase = "http://192.168.3.22:8080/sonos/";
 
 Preferences preferences;
 String storedSSID = "";
