@@ -68,3 +68,26 @@ You're absolutely right! Hard-coding the file list was the wrong approach. I imp
 4. **Updated test** to use `getEmbeddedFiles` dynamically instead of hard-coded expected files
 
 **Result**: System now correctly returns only files that exist in the embedded filesystem (11 files) and playlists are truly dynamic. The subcommand shows exactly what files are embedded, making debugging easier.
+
+## Turn 5 - Rename MP3 files to remove special characters
+
+> Rename every mp3 file in music/presets/X/ folders where X is 1-5 such that the file names are simple characters. Hyphen and parens are allowed with letters and numbers but not other special characters. Update prompts and commit.
+
+I systematically renamed all MP3 files in presets 1-5 to remove problematic special characters while keeping spaces, hyphens, parentheses, letters, and numbers:
+
+**Preset 1**: Already clean (32 files)
+**Preset 2**: Removed `(s)` and `!` from 3 files (24 files total)
+**Preset 3**: Removed `'`, `,`, and `_` from 10 files (47 files total) 
+**Preset 4**: Removed `'`, `_`, and `[]` from 8 files (39 files total)
+**Preset 5**: Removed `'`, `?`, and `[]` from 5 files (15 files total)
+
+**Key changes made:**
+- `(s)` → removed the `(s)` 
+- `!` → removed exclamation marks
+- `'` → removed apostrophes  
+- `,` → removed commas
+- `_` → replaced with spaces
+- `[]` → replaced with `()`
+- `?` → removed question marks
+
+**Result**: All files now use only letters, numbers, spaces, hyphens, and parentheses. The `//go:embed` directive can now properly include all files, and tests pass with the increased file counts.
