@@ -50,6 +50,13 @@ type Speaker struct {
 	Room    string `json:"room"`
 }
 
+type ListItem struct {
+	Index    int    `json:"index"`
+	Title    string `json:"title"`
+	Filename string `json:"filename"`
+	URL      string `json:"url"`
+}
+
 // Global cache of discovered speakers
 var speakerCache = make(map[string]Speaker)
 
@@ -247,7 +254,7 @@ func getEmbeddedFiles(presetNum string) ([]string, error) {
 }
 
 // getPresetPlaylistItems returns a sorted list of playlist items for a given preset
-func getPresetPlaylistItems(presetNum string, scheme string) ([]map[string]string, error) {
+func getPresetPlaylistItems(presetNum string, scheme string) ([]ListItem, error) {
 	// Get embedded files for this preset
 	mp3Files, err := getEmbeddedFiles(presetNum)
 	if err != nil {
@@ -256,17 +263,17 @@ func getPresetPlaylistItems(presetNum string, scheme string) ([]map[string]strin
 	
 	// Build playlist items
 	baseURL := fmt.Sprintf("%s://%s", scheme, resourceHost)
-	playlistItems := make([]map[string]string, 0, len(mp3Files))
+	playlistItems := make([]ListItem, 0, len(mp3Files))
 	
 	for i, mp3File := range mp3Files {
 		songURL := fmt.Sprintf("%s/music/presets/%s/%s", baseURL, presetNum, url.PathEscape(mp3File))
 		songTitle := strings.TrimSuffix(mp3File, filepath.Ext(mp3File))
 		
-		item := map[string]string{
-			"index":    fmt.Sprintf("%d", i),
-			"title":    songTitle,
-			"filename": mp3File,
-			"url":      songURL,
+		item := ListItem{
+			Index:    i,
+			Title:    songTitle,
+			Filename: mp3File,
+			URL:      songURL,
 		}
 		playlistItems = append(playlistItems, item)
 	}
@@ -326,8 +333,8 @@ func playPreset(w http.ResponseWriter, r *http.Request, presetNum string, speake
 	// Add all MP3 files from the preset to the queue
 	var addedTracks int
 	for _, item := range playlistItems {
-		songURL := item["url"]
-		songTitle := item["title"]
+		songURL := item.URL
+		songTitle := item.Title
 		
 		log.Printf("Adding track to queue: %s", songURL)
 		

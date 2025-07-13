@@ -37,9 +37,9 @@ func TestPresetHandlerGET(t *testing.T) {
 
 	// Parse JSON response
 	var response struct {
-		Preset        string              `json:"preset"`
-		PlaylistCount int                 `json:"playlist_count"`
-		PlaylistItems []map[string]string `json:"playlist_items"`
+		Preset        string     `json:"preset"`
+		PlaylistCount int        `json:"playlist_count"`
+		PlaylistItems []ListItem `json:"playlist_items"`
 	}
 
 	err = json.Unmarshal(rr.Body.Bytes(), &response)
@@ -77,27 +77,27 @@ func TestPresetHandlerGET(t *testing.T) {
 	// Verify each item is in sorted order and has required fields
 	for i, item := range response.PlaylistItems {
 		// Check index
-		if item["index"] != fmt.Sprintf("%d", i) {
-			t.Errorf("item %d has wrong index: %s", i, item["index"])
+		if item.Index != i {
+			t.Errorf("item %d has wrong index: %d", i, item.Index)
 		}
 
 		// Check filename matches expected sorted order
-		if i < len(expectedFiles) && item["filename"] != expectedFiles[i] {
+		if i < len(expectedFiles) && item.Filename != expectedFiles[i] {
 			t.Errorf("item %d filename mismatch: expected %s, got %s",
-				i, expectedFiles[i], item["filename"])
+				i, expectedFiles[i], item.Filename)
 		}
 
 		// Check required fields exist
-		if _, ok := item["title"]; !ok {
-			t.Errorf("item %d missing 'title' field", i)
+		if item.Title == "" {
+			t.Errorf("item %d missing 'Title' field", i)
 		}
-		if _, ok := item["url"]; !ok {
-			t.Errorf("item %d missing 'url' field", i)
+		if item.URL == "" {
+			t.Errorf("item %d missing 'URL' field", i)
 		}
 
 		// Verify URL format
-		if !strings.Contains(item["url"], "/music/presets/5/") {
-			t.Errorf("item %d URL doesn't contain expected path: %s", i, item["url"])
+		if !strings.Contains(item.URL, "/music/presets/5/") {
+			t.Errorf("item %d URL doesn't contain expected path: %s", i, item.URL)
 		}
 	}
 }
@@ -146,9 +146,9 @@ func TestAllPresetDirectories(t *testing.T) {
 
 			// Parse JSON response
 			var response struct {
-				Preset        string              `json:"preset"`
-				PlaylistCount int                 `json:"playlist_count"`
-				PlaylistItems []map[string]string `json:"playlist_items"`
+				Preset        string     `json:"preset"`
+				PlaylistCount int        `json:"playlist_count"`
+				PlaylistItems []ListItem `json:"playlist_items"`
 			}
 
 			err = json.Unmarshal(rr.Body.Bytes(), &response)
@@ -181,25 +181,25 @@ func TestAllPresetDirectories(t *testing.T) {
 				item := response.PlaylistItems[i]
 
 				// Check filename matches
-				if item["filename"] != expectedFile {
-					t.Errorf("item %d filename mismatch: expected %s, got %s", i, expectedFile, item["filename"])
+				if item.Filename != expectedFile {
+					t.Errorf("item %d filename mismatch: expected %s, got %s", i, expectedFile, item.Filename)
 				}
 
 				// Check required fields exist
-				if _, ok := item["title"]; !ok {
-					t.Errorf("item %d missing 'title' field", i)
+				if item.Title == "" {
+					t.Errorf("item %d missing 'Title' field", i)
 				}
-				if _, ok := item["url"]; !ok {
-					t.Errorf("item %d missing 'url' field", i)
+				if item.URL == "" {
+					t.Errorf("item %d missing 'URL' field", i)
 				}
-				if _, ok := item["index"]; !ok {
-					t.Errorf("item %d missing 'index' field", i)
+				if item.Index != i {
+					t.Errorf("item %d has wrong Index: expected %d, got %d", i, i, item.Index)
 				}
 
 				// Verify URL contains correct preset path
 				expectedPath := fmt.Sprintf("/music/presets/%s/", presetNum)
-				if !strings.Contains(item["url"], expectedPath) {
-					t.Errorf("item %d URL doesn't contain expected path %s: %s", i, expectedPath, item["url"])
+				if !strings.Contains(item.URL, expectedPath) {
+					t.Errorf("item %d URL doesn't contain expected path %s: %s", i, expectedPath, item.URL)
 				}
 			}
 		})
