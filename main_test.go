@@ -101,3 +101,112 @@ func TestPresetHandlerGET(t *testing.T) {
 		}
 	}
 }
+
+func TestAllPresetDirectories(t *testing.T) {
+	// Walk the music/presets/ folder to discover all preset directories
+	entries, err := musicFS.ReadDir("music/presets")
+	if err != nil {
+		t.Fatalf("failed to read presets directory: %v", err)
+	}
+
+	var presetDirs []string
+	for _, entry := range entries {
+		if entry.IsDir() {
+			presetDirs = append(presetDirs, entry.Name())
+		}
+	}
+
+	if len(presetDirs) == 0 {
+		t.Fatal("no preset directories found")
+	}
+
+	// Test each discovered preset directory
+	for _, presetNum := range presetDirs {
+		t.Run(fmt.Sprintf("preset_%s", presetNum), func(t *testing.T) {
+			// Get files from the directory using getEmbeddedFiles
+			expectedFiles, err := getEmbeddedFiles(presetNum)
+			if err != nil {
+				// Skip test for empty preset directories (like preset 6 which has no songs yet)
+				if strings.Contains(err.Error(), "no songs in preset") {
+					t.Skipf("Skipping preset %s: %v", presetNum, err)
+					return
+				}
+				t.Fatalf("failed to get embedded files for preset %s: %v", presetNum, err)
+			}
+
+			// Make HTTP request to GET endpoint
+			req, err := http.NewRequest("GET", fmt.Sprintf("/sonos/preset/%s", presetNum), nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			rr := httptest.NewRecorder()
+			handler := http.HandlerFunc(presetHandler)
+			handler.ServeHTTP(rr, req)
+
+			// Check status code
+			if status := rr.Code; status != http.StatusOK {
+				t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+			}
+
+			// Parse JSON response
+			var response struct {
+				Preset        string              `json:"preset"`
+				PlaylistCount int                 `json:"playlist_count"`
+				PlaylistItems []map[string]string `json:"playlist_items"`
+			}
+
+			err = json.Unmarshal(rr.Body.Bytes(), &response)
+			if err != nil {
+				t.Fatalf("failed to unmarshal response: %v", err)
+			}
+
+			// Verify preset number matches
+			if response.Preset != presetNum {
+				t.Errorf("expected preset '%s', got '%s'", presetNum, response.Preset)
+			}
+
+			// Verify playlist count matches expected files
+			if response.PlaylistCount != len(expectedFiles) {
+				t.Errorf("playlist_count (%d) doesn't match expected files (%d)", response.PlaylistCount, len(expectedFiles))
+			}
+
+			// Verify actual playlist items match expected files
+			if len(response.PlaylistItems) != len(expectedFiles) {
+				t.Errorf("playlist items count (%d) doesn't match expected files (%d)", len(response.PlaylistItems), len(expectedFiles))
+			}
+
+			// Verify each playlist item matches the corresponding file
+			for i, expectedFile := range expectedFiles {
+				if i >= len(response.PlaylistItems) {
+					t.Errorf("missing playlist item for file: %s", expectedFile)
+					continue
+				}
+
+				item := response.PlaylistItems[i]
+
+				// Check filename matches
+				if item["filename"] != expectedFile {
+					t.Errorf("item %d filename mismatch: expected %s, got %s", i, expectedFile, item["filename"])
+				}
+
+				// Check required fields exist
+				if _, ok := item["title"]; !ok {
+					t.Errorf("item %d missing 'title' field", i)
+				}
+				if _, ok := item["url"]; !ok {
+					t.Errorf("item %d missing 'url' field", i)
+				}
+				if _, ok := item["index"]; !ok {
+					t.Errorf("item %d missing 'index' field", i)
+				}
+
+				// Verify URL contains correct preset path
+				expectedPath := fmt.Sprintf("/music/presets/%s/", presetNum)
+				if !strings.Contains(item["url"], expectedPath) {
+					t.Errorf("item %d URL doesn't contain expected path %s: %s", i, expectedPath, item["url"])
+				}
+			}
+		})
+	}
+}

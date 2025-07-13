@@ -91,3 +91,33 @@ I systematically renamed all MP3 files in presets 1-5 to remove problematic spec
 - `?` → removed question marks
 
 **Result**: All files now use only letters, numbers, spaces, hyphens, and parentheses. The `//go:embed` directive can now properly include all files, and tests pass with the increased file counts.
+
+## Turn 6 - Add comprehensive preset testing and create preset 6
+
+> Read CLAUDE.md.  2. Add a test to main_test.go that reads all the files in each preset directory and ensures the GET preset method returns the same list of files.  3. Create the music/presets/6 directory with a .gitignore that ignores mp3 files.  4. The test should walk the music/presets/ folder so any new preset folders are automatically added.
+
+I successfully implemented all the requested changes:
+
+1. **Read CLAUDE.md** to understand the project structure and development workflow
+
+2. **Added comprehensive test `TestAllPresetDirectories`** to main_test.go that:
+   - Dynamically discovers all preset directories by walking `music/presets/` folder
+   - Tests the GET preset method for each discovered directory
+   - Validates that API response matches actual files using `getEmbeddedFiles` function
+   - Automatically includes any new preset folders that are added
+   - Gracefully handles empty preset directories by skipping them
+
+3. **Created `music/presets/6` directory** with `.gitignore` file that ignores `*.mp3` files
+
+4. **Test automatically walks preset folders** - any new preset directories added to `music/presets/` will be automatically tested
+
+**Key features of the new test:**
+- Uses `musicFS.ReadDir("music/presets")` to discover all preset directories dynamically
+- For each preset, calls `getEmbeddedFiles()` to get expected files from embedded filesystem
+- Makes HTTP GET request to `/sonos/preset/{num}` endpoint
+- Validates JSON response structure and content matches expected files
+- Verifies required fields (filename, title, url, index) exist
+- Checks URL paths contain correct preset directory
+- Skips empty presets (like preset 6) with informative message
+
+**Result**: Tests pass for all existing presets (1-5) and skip empty preset 6. The test framework will automatically validate any new presets added in the future.
