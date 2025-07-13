@@ -130,3 +130,14 @@ The GET endpoint returns a JSON response like:
   ]
 }
 ```
+
+## Turn 7 - Clean up test file
+
+> Remove all tests except TestPresetHandlerGET
+
+I removed all other test functions from `main_test.go`, keeping only the `TestPresetHandlerGET` test. This simplified the test suite to focus on the core functionality we implemented. The remaining test validates:
+- GET method returns 200 status
+- Response has correct Content-Type (application/json)
+- JSON structure includes preset, playlist_count, and playlist_items
+- Playlist items are returned in sorted alphabetical order
+- Each item has required fields: index, title, filename, url
