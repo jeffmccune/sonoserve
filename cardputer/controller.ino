@@ -21,6 +21,9 @@ void setup() {
   auto cfg = M5.config();
   M5Cardputer.begin(cfg);
   
+  // Set brightness to 60%
+  M5Cardputer.Display.setBrightness(153); // 60% of 255
+  
   // Initialize LCD and set large font
   M5Cardputer.Display.setTextSize(2);
   M5Cardputer.Display.setTextColor(WHITE, BLACK);

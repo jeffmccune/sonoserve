@@ -218,3 +218,21 @@ I successfully updated the controller interface and CardPuter firmware with the 
 - CardPuter uses hostname instead of hardcoded IP for better network flexibility  
 - Boot process uses consistent large text (size 2) and natural cursor flow
 - All functionality preserved while improving user experience and maintainability
+
+## Turn 10 - Set CardPuter brightness to 60% on startup
+
+> Update the controller.ino file to set the brightness to 60% on startup
+
+I updated the CardPuter controller.ino file to set the display brightness to 60% during startup:
+
+**Changes made:**
+
+1. **Added brightness setting** in the setup() function:
+   - Added `M5Cardputer.Display.setBrightness(153);` after M5Cardputer.begin()
+   - Used value 153 which is 60% of the maximum brightness (255)
+   - Placed before display initialization for immediate effect
+
+**Result:**
+- CardPuter now starts with 60% brightness instead of default maximum
+- Provides better battery life and more comfortable viewing
+- Consistent brightness setting from startup
