@@ -6,7 +6,8 @@
 const char* speaker = "Kids Room";
 const char* body = "{\"speaker\": \"Kids Room\"}";
 // const char* serverBase = "http://192.168.4.88:8080/sonos/";
-const char* serverBase = "http://192.168.3.22:8080/sonos/";
+// const char* serverBase = "http://192.168.3.22:8080/sonos/";
+const char* serverBase = "http://tools:8080/sonos/";
 
 Preferences preferences;
 String storedSSID = "";
@@ -26,7 +27,6 @@ void setup() {
   M5Cardputer.Display.setTextSize(2);
   M5Cardputer.Display.setTextColor(WHITE, BLACK);
   M5Cardputer.Display.clear();
-  M5Cardputer.Display.setCursor(0, 0);
   
   // Initialize preferences
   preferences.begin("wifi-creds", false);
@@ -57,7 +57,6 @@ void setup() {
     
     // Update countdown
     int remaining = 3 - ((millis() - startTime) / 1000);
-    M5Cardputer.Display.setCursor(0, 40);
     M5Cardputer.Display.print("Starting in ");
     M5Cardputer.Display.print(remaining);
     M5Cardputer.Display.println("...");
@@ -81,7 +80,6 @@ void setup() {
 
 void setupWiFi() {
   M5Cardputer.Display.clear();
-  M5Cardputer.Display.setCursor(0, 0);
   M5Cardputer.Display.println("Scanning WiFi...");
   
   // Scan for networks
@@ -99,8 +97,7 @@ void setupWiFi() {
   
   // Display networks
   M5Cardputer.Display.clear();
-  M5Cardputer.Display.setCursor(0, 0);
-  M5Cardputer.Display.setTextSize(1);
+  M5Cardputer.Display.setTextSize(2);
   M5Cardputer.Display.println("Select network (0-9):");
   
   // Show up to 10 networks
@@ -136,10 +133,8 @@ void setupWiFi() {
   
   // Get password
   M5Cardputer.Display.clear();
-  M5Cardputer.Display.setCursor(0, 0);
   M5Cardputer.Display.setTextSize(2);
   M5Cardputer.Display.println("Network: " + selectedSSID);
-  M5Cardputer.Display.setTextSize(1);
   M5Cardputer.Display.println("\nEnter password:");
   M5Cardputer.Display.println("Press Enter/Space to confirm");
   M5Cardputer.Display.println("Press `/~ to confirm");
@@ -165,7 +160,7 @@ void setupWiFi() {
           if (i != 0) {
             M5Cardputer.Display.fillRect(0, 120, 240, 40, BLACK);
             M5Cardputer.Display.setCursor(0, 120);
-            M5Cardputer.Display.setTextSize(1);
+            M5Cardputer.Display.setTextSize(2);
             M5Cardputer.Display.print("Key: ");
             M5Cardputer.Display.print(i);
             M5Cardputer.Display.print(" (0x");
@@ -173,7 +168,6 @@ void setupWiFi() {
             M5Cardputer.Display.print(") '");
             if (i >= 32 && i <= 126) M5Cardputer.Display.print((char)i);
             M5Cardputer.Display.print("'");
-            M5Cardputer.Display.setTextSize(2);
           }
           
           // Check various Enter key possibilities
@@ -204,9 +198,8 @@ void setupWiFi() {
             // Only accept space as confirm if password has been entered
             M5Cardputer.Display.fillRect(0, 140, 240, 20, BLACK);
             M5Cardputer.Display.setCursor(0, 140);
-            M5Cardputer.Display.setTextSize(1);
-            M5Cardputer.Display.print("Space detected - confirming");
             M5Cardputer.Display.setTextSize(2);
+            M5Cardputer.Display.print("Space detected - confirming");
             enterPressed = true;
           }
           // Regular printable characters
@@ -244,7 +237,6 @@ void setupWiFi() {
 
 void connectToWiFi(const char* ssid, const char* password) {
   M5Cardputer.Display.clear();
-  M5Cardputer.Display.setCursor(0, 0);
   M5Cardputer.Display.setTextSize(2);
   M5Cardputer.Display.println("Connecting to:");
   M5Cardputer.Display.println(ssid);
@@ -260,13 +252,11 @@ void connectToWiFi(const char* ssid, const char* password) {
   
   if (WiFi.status() == WL_CONNECTED) {
     M5Cardputer.Display.clear();
-    M5Cardputer.Display.setCursor(0, 0);
     M5Cardputer.Display.println("Connected!");
     M5Cardputer.Display.println(WiFi.localIP());
     delay(1000);
   } else {
     M5Cardputer.Display.clear();
-    M5Cardputer.Display.setCursor(0, 0);
     M5Cardputer.Display.setTextColor(RED, BLACK);
     M5Cardputer.Display.println("Failed to connect!");
     M5Cardputer.Display.setTextColor(WHITE, BLACK);
@@ -285,7 +275,6 @@ void connectToWiFi(const char* ssid, const char* password) {
 
 void showReady() {
   M5Cardputer.Display.clear();
-  M5Cardputer.Display.setCursor(0, 0);
   M5Cardputer.Display.setTextSize(2);
   M5Cardputer.Display.setTextColor(GREEN, BLACK);
   M5Cardputer.Display.print("READY ");

@@ -731,6 +731,105 @@ Quick access to preset playlists:
   ))}
 </div>
 
+## View Preset Playlist
+
+View the contents of any preset playlist before playing it:
+
+<div style={{marginTop: '20px'}}>
+  <label style={{marginRight: '10px'}}>Preset Number:</label>
+  <input 
+    id="presetInput" 
+    type="number" 
+    min="0" 
+    max="9" 
+    defaultValue="5"
+    style={{
+      padding: '5px 10px',
+      fontSize: '16px',
+      border: '1px solid #ccc',
+      borderRadius: '4px',
+      width: '60px',
+      marginRight: '10px'
+    }}
+  />
+  <button 
+    onClick={() => {
+      const presetNum = document.getElementById('presetInput').value;
+      const server = document.getElementById('serverInput').value || 'localhost:8080';
+      const url = (window.location.host === server) 
+        ? `/sonos/preset/${presetNum}` 
+        : `http://${server}/sonos/preset/${presetNum}`;
+      
+      const button = event.target;
+      const resultDiv = document.getElementById('presetResult');
+      button.disabled = true;
+      button.textContent = 'Loading Preset...';
+      resultDiv.innerHTML = '<em>Fetching preset playlist...</em>';
+      
+      fetch(url, { method: 'GET' })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          return response.json();
+        })
+        .then(data => {
+          console.log('Preset data:', data);
+          
+          let content = `<h4>Preset ${data.preset} - ${data.playlist_count} tracks:</h4>`;
+          
+          if (data.playlist_count === 0) {
+            content += '<p><em>This preset is empty (no tracks found)</em></p>';
+          } else {
+            content += '<ol style="padding-left: 20px;">';
+            data.playlist_items.forEach(item => {
+              content += `
+                <li style="margin: 8px 0; padding: 8px; background-color: #f8f9fa; border-radius: 4px;">
+                  <strong>${item.title}</strong><br/>
+                  <small style="color: #6c757d;">File: ${item.filename}</small><br/>
+                  <small style="color: #6c757d;">URL: <a href="${item.url}" target="_blank" style="color: #0969da;">${item.url}</a></small>
+                </li>
+              `;
+            });
+            content += '</ol>';
+          }
+          
+          resultDiv.innerHTML = content;
+        })
+        .catch(error => {
+          console.error('Preset error:', error);
+          resultDiv.innerHTML = `<em style="color: red;">Error: ${error.message}</em>`;
+        })
+        .finally(() => {
+          button.disabled = false;
+          button.textContent = 'View Preset';
+        });
+    }}
+    style={{
+      padding: '10px 20px',
+      fontSize: '16px',
+      backgroundColor: '#28a745',
+      color: 'white',
+      border: 'none',
+      borderRadius: '4px',
+      cursor: 'pointer'
+    }}
+  >
+    View Preset
+  </button>
+  
+  <div id="presetResult" style={{
+    marginTop: '20px',
+    padding: '20px',
+    border: '1px solid #ddd',
+    borderRadius: '4px',
+    minHeight: '100px',
+    backgroundColor: '#fafbfc'
+  }}>
+    <em>Select a preset number and click "View Preset" to see its contents</em>
+  </div>
+</div>
+
 ## API Examples
 
 Here are curl command examples for all the API endpoints:
@@ -769,6 +868,15 @@ curl -X POST localhost:8080/sonos/pause \
 curl -X POST localhost:8080/sonos/restart-playlist \
   -H "Content-Type: application/json" \
   -d '{"speaker": "Living Room"}'
+```
+
+### Get Preset Playlist (View Contents)
+```bash
+# Replace {num} with a number 0-9
+curl -s localhost:8080/sonos/preset/{num}
+
+# Example for preset 5:
+curl -s localhost:8080/sonos/preset/5
 ```
 
 ### Play Preset (0-9)

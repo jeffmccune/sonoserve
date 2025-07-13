@@ -187,3 +187,34 @@ I successfully refactored the code to use a proper `ListItem` struct with idioma
 - JSON output remains identical: `{"index": 0, "title": "...", "filename": "...", "url": "..."}`
 - All tests pass and API functionality is preserved
 - More idiomatic Go code following struct naming conventions
+
+## Turn 9 - Update controller interface and CardPuter firmware
+
+> Update the controller.md to make the get preset API call, include a curl command, and display the results in the browser.  2. Update the cardputer controller.ino file to make the http request to http://tools instead of an IP address.  3. Update the controller.ino file to use a text size of 2 through the boot process.  Don't change the cursor position, only clear the screen through the boot process.  4. Update prompts and commit.
+
+I successfully updated the controller interface and CardPuter firmware with the requested changes:
+
+**Changes made:**
+
+1. **Updated controller.md** with new "View Preset Playlist" section:
+   - Added interactive preset viewer with number input (0-9) 
+   - Displays playlist contents in formatted list with track titles, filenames, and URLs
+   - Shows track count and handles empty presets gracefully
+   - Added curl command: `curl -s localhost:8080/sonos/preset/{num}`
+
+2. **Updated CardPuter controller.ino**:
+   - Changed server URL from IP address to `http://tools:8080/sonos/`
+   - Updated from `http://192.168.3.22:8080/sonos/` to use hostname resolution
+
+3. **Updated boot process text handling**:
+   - Set text size to 2 consistently throughout boot process
+   - Removed all `setCursor(0, 0)` calls from boot functions (setup, setupWiFi, connectToWiFi, showReady)
+   - Only use `clear()` during boot, maintaining automatic cursor positioning
+   - Fixed WiFi setup, password entry, and connection screens to use size 2 text
+   - Removed text size changes from 2 to 1 and back during debugging displays
+
+**Result:**
+- Browser interface now allows viewing preset contents before playing them
+- CardPuter uses hostname instead of hardcoded IP for better network flexibility  
+- Boot process uses consistent large text (size 2) and natural cursor flow
+- All functionality preserved while improving user experience and maintainability
