@@ -63,7 +63,9 @@ func TestPresetHandlerGET(t *testing.T) {
 			response.PlaylistCount, len(response.PlaylistItems))
 	}
 
-	// Verify items are sorted alphabetically
+	// expectedFiles represents the mp3 files in the preset folded, sorted
+	// alpha-numerically.  Take care to include the files as they exist in the
+	// filesystem determined by the Bash(ls -1 *.mp3 | sort -n) command.
 	expectedFiles := []string{
 		"03-Tuputupu (The Feast).mp3",
 		"04-Beyond (feat. Rachel House).mp3",
