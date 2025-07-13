@@ -126,11 +126,6 @@ func TestAllPresetDirectories(t *testing.T) {
 			// Get files from the directory using getEmbeddedFiles
 			expectedFiles, err := getEmbeddedFiles(presetNum)
 			if err != nil {
-				// Skip test for empty preset directories (like preset 6 which has no songs yet)
-				if strings.Contains(err.Error(), "no songs in preset") {
-					t.Skipf("Skipping preset %s: %v", presetNum, err)
-					return
-				}
 				t.Fatalf("failed to get embedded files for preset %s: %v", presetNum, err)
 			}
 

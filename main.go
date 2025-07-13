@@ -240,11 +240,7 @@ func getEmbeddedFiles(presetNum string) ([]string, error) {
 		}
 	}
 	
-	if len(mp3Files) == 0 {
-		return nil, fmt.Errorf("no songs in preset %s", presetNum)
-	}
-	
-	// Sort files alphanumerically
+	// Sort files alphanumerically (even if empty)
 	sort.Strings(mp3Files)
 	
 	return mp3Files, nil
@@ -260,7 +256,7 @@ func getPresetPlaylistItems(presetNum string, scheme string) ([]map[string]strin
 	
 	// Build playlist items
 	baseURL := fmt.Sprintf("%s://%s", scheme, resourceHost)
-	var playlistItems []map[string]string
+	playlistItems := make([]map[string]string, 0, len(mp3Files))
 	
 	for i, mp3File := range mp3Files {
 		songURL := fmt.Sprintf("%s/music/presets/%s/%s", baseURL, presetNum, url.PathEscape(mp3File))
