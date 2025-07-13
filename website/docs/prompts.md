@@ -102,3 +102,31 @@ I fixed the battery display issues:
 - Now shows just "Battery: XX%" without charging status
 
 The battery display is now cleaner and consistent with the rest of the interface.
+
+## Turn 6 - Add GET method support to preset handler
+
+> Modify the presetHandler in main.go to handle the http GET verb.  1. Preserve the MethodPost behavior, move it to a dedicated function.  2. Add the new behavior for MethodGet which returns the playlist items as a JSON object.  3. Ensure both the POST method and the GET method call the same function to get the list of URLs to play for that preset.  4. Add a test case for the GET method for preset five that validates the playlist items are returned in sorted order.
+
+I successfully modified the `presetHandler` in `main.go` to handle both GET and POST HTTP methods:
+
+1. **Extracted POST behavior** into a dedicated `playPreset` function
+2. **Added GET method support** that returns playlist items as JSON with fields: preset, playlist_count, and playlist_items (each item has index, title, filename, and url)
+3. **Created a shared function** `getPresetPlaylistItems` that both GET and POST methods use to retrieve the sorted list of URLs
+4. **Added a test case** `TestPresetHandlerGET` that validates the GET method returns playlist items in sorted order for preset 5
+
+The GET endpoint returns a JSON response like:
+```json
+{
+  "preset": "5",
+  "playlist_count": 11,
+  "playlist_items": [
+    {
+      "index": "0",
+      "title": "03-Tuputupu (The Feast)",
+      "filename": "03-Tuputupu (The Feast).mp3",
+      "url": "http://192.168.2.252:8080/music/presets/5/03-Tuputupu%20%28The%20Feast%29.mp3"
+    },
+    ...
+  ]
+}
+```

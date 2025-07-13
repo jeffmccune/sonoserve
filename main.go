@@ -217,45 +217,13 @@ func echoHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(body)
 }
 
-func presetHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	
-	// Extract preset number from path
-	path := r.URL.Path
-	presetNum := strings.TrimPrefix(path, "/sonos/preset/")
-	if presetNum == "" || presetNum == path {
-		http.Error(w, "Invalid preset path", http.StatusBadRequest)
-		return
-	}
-	
-	// Parse JSON request body to get optional speaker name
-	var req struct {
-		Speaker string `json:"speaker"`
-	}
-	
-	if r.Body != nil {
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			// Body might be empty or invalid JSON, that's okay
-			log.Printf("Could not parse JSON body: %v", err)
-		}
-	}
-	
-	if req.Speaker == "" {
-		req.Speaker = defaultSpeaker
-	}
-	
-	log.Printf("Preset %s requested for speaker: %s", presetNum, req.Speaker)
-	
+// getPresetPlaylistItems returns a sorted list of playlist items for a given preset
+func getPresetPlaylistItems(presetNum string, scheme string) ([]map[string]string, error) {
 	// Check if preset directory exists
 	presetDir := fmt.Sprintf("music/presets/%s", presetNum)
 	entries, err := musicFS.ReadDir(presetDir)
 	if err != nil {
-		log.Printf("Preset directory %s not found: %v", presetDir, err)
-		http.Error(w, fmt.Sprintf("Preset %s not found", presetNum), http.StatusNotFound)
-		return
+		return nil, fmt.Errorf("preset %s not found", presetNum)
 	}
 	
 	// Collect all MP3 files from the preset directory
@@ -267,18 +235,53 @@ func presetHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	
 	if len(mp3Files) == 0 {
-		log.Printf("No MP3 files found in preset %s", presetNum)
-		http.Error(w, fmt.Sprintf("No songs in preset %s", presetNum), http.StatusNotFound)
-		return
+		return nil, fmt.Errorf("no songs in preset %s", presetNum)
 	}
 	
 	// Sort files alphanumerically
 	sort.Strings(mp3Files)
 	
+	// Build playlist items
+	baseURL := fmt.Sprintf("%s://%s", scheme, resourceHost)
+	var playlistItems []map[string]string
+	
+	for i, mp3File := range mp3Files {
+		songURL := fmt.Sprintf("%s/music/presets/%s/%s", baseURL, presetNum, url.PathEscape(mp3File))
+		songTitle := strings.TrimSuffix(mp3File, filepath.Ext(mp3File))
+		
+		item := map[string]string{
+			"index":    fmt.Sprintf("%d", i),
+			"title":    songTitle,
+			"filename": mp3File,
+			"url":      songURL,
+		}
+		playlistItems = append(playlistItems, item)
+	}
+	
+	return playlistItems, nil
+}
+
+// playPreset handles the POST request to play a preset on a speaker
+func playPreset(w http.ResponseWriter, r *http.Request, presetNum string, speakerName string) {
+	log.Printf("Preset %s requested for speaker: %s", presetNum, speakerName)
+	
+	// Get playlist items
+	scheme := "http"
+	if r.TLS != nil {
+		scheme = "https"
+	}
+	
+	playlistItems, err := getPresetPlaylistItems(presetNum, scheme)
+	if err != nil {
+		log.Printf("Failed to get preset playlist: %v", err)
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	
 	// Find the speaker in our cache
-	speaker, exists := speakerCache[req.Speaker]
+	speaker, exists := speakerCache[speakerName]
 	if !exists {
-		http.Error(w, fmt.Sprintf("Speaker '%s' not found", req.Speaker), http.StatusNotFound)
+		http.Error(w, fmt.Sprintf("Speaker '%s' not found", speakerName), http.StatusNotFound)
 		return
 	}
 	
@@ -308,20 +311,12 @@ func presetHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	
 	// Add all MP3 files from the preset to the queue
-	scheme := "http"
-	if r.TLS != nil {
-		scheme = "https"
-	}
-	baseURL := fmt.Sprintf("%s://%s", scheme, resourceHost)
-	
 	var addedTracks int
-	for _, mp3File := range mp3Files {
-		songURL := fmt.Sprintf("%s/music/presets/%s/%s", baseURL, presetNum, url.PathEscape(mp3File))
+	for _, item := range playlistItems {
+		songURL := item["url"]
+		songTitle := item["title"]
 		
 		log.Printf("Adding track to queue: %s", songURL)
-		
-		// Extract filename from URL for metadata
-		songTitle := strings.TrimSuffix(mp3File, filepath.Ext(mp3File))
 		
 		// Add URI to queue with filename as metadata
 		req := &upnp.AddURIToQueueIn{
@@ -370,6 +365,64 @@ func presetHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Successfully started playing preset %s on %s", presetNum, speaker.Name)
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(fmt.Sprintf("Playing preset %s on %s\n", presetNum, speaker.Name)))
+}
+
+func presetHandler(w http.ResponseWriter, r *http.Request) {
+	// Extract preset number from path
+	path := r.URL.Path
+	presetNum := strings.TrimPrefix(path, "/sonos/preset/")
+	if presetNum == "" || presetNum == path {
+		http.Error(w, "Invalid preset path", http.StatusBadRequest)
+		return
+	}
+	
+	switch r.Method {
+	case http.MethodGet:
+		// Return playlist items as JSON
+		scheme := "http"
+		if r.TLS != nil {
+			scheme = "https"
+		}
+		
+		playlistItems, err := getPresetPlaylistItems(presetNum, scheme)
+		if err != nil {
+			log.Printf("Failed to get preset playlist: %v", err)
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		
+		response := map[string]interface{}{
+			"preset":         presetNum,
+			"playlist_count": len(playlistItems),
+			"playlist_items": playlistItems,
+		}
+		
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+		
+	case http.MethodPost:
+		// Parse JSON request body to get optional speaker name
+		var req struct {
+			Speaker string `json:"speaker"`
+		}
+		
+		if r.Body != nil {
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				// Body might be empty or invalid JSON, that's okay
+				log.Printf("Could not parse JSON body: %v", err)
+			}
+		}
+		
+		if req.Speaker == "" {
+			req.Speaker = defaultSpeaker
+		}
+		
+		playPreset(w, r, presetNum, req.Speaker)
+		
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 }
 
 func playlistHandler(w http.ResponseWriter, r *http.Request) {
