@@ -217,8 +217,8 @@ func echoHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(body)
 }
 
-// getPresetPlaylistItems returns a sorted list of playlist items for a given preset
-func getPresetPlaylistItems(presetNum string, scheme string) ([]map[string]string, error) {
+// getEmbeddedFiles returns the list of MP3 files in the embedded filesystem for a given preset
+func getEmbeddedFiles(presetNum string) ([]string, error) {
 	// Check if preset directory exists
 	presetDir := fmt.Sprintf("music/presets/%s", presetNum)
 	entries, err := musicFS.ReadDir(presetDir)
@@ -240,35 +240,23 @@ func getPresetPlaylistItems(presetNum string, scheme string) ([]map[string]strin
 		}
 	}
 	
-	// Also add missing files that should be present
-	expectedFiles := []string{
-		"01-Tulou Tagaloa (Sei e Va'ai Mai).mp3",
-		"02-We're Back.mp3",
-		"07-What Could Be Better Than This?.mp3",
-		"09-Can I Get A Chee Hoo?.mp3",
-		"16-We're Back (Te Vaka Version).mp3",
-	}
-	
-	// Add missing files if they're not already in the list
-	for _, expectedFile := range expectedFiles {
-		found := false
-		for _, existingFile := range mp3Files {
-			if existingFile == expectedFile {
-				found = true
-				break
-			}
-		}
-		if !found {
-			mp3Files = append(mp3Files, expectedFile)
-		}
-	}
-	
 	if len(mp3Files) == 0 {
 		return nil, fmt.Errorf("no songs in preset %s", presetNum)
 	}
 	
 	// Sort files alphanumerically
 	sort.Strings(mp3Files)
+	
+	return mp3Files, nil
+}
+
+// getPresetPlaylistItems returns a sorted list of playlist items for a given preset
+func getPresetPlaylistItems(presetNum string, scheme string) ([]map[string]string, error) {
+	// Get embedded files for this preset
+	mp3Files, err := getEmbeddedFiles(presetNum)
+	if err != nil {
+		return nil, err
+	}
 	
 	// Build playlist items
 	baseURL := fmt.Sprintf("%s://%s", scheme, resourceHost)
@@ -1519,6 +1507,7 @@ func main() {
 	
 	var (
 		showVersion    = flag.Bool("version", false, "show version information")
+		listFiles      = flag.String("list-files", "", "list embedded files for a preset (e.g., -list-files=5)")
 		addr           = flag.String("addr", ":8080", "server listen address (interface:port)")
 		resourceHostPtr = flag.String("resource-host", defaultResourceHost, "host:port for external devices to fetch resources from this server")
 		defaultSpeakerPtr = flag.String("default-speaker", "Kids Room", "default speaker name to use when not specified")
@@ -1531,6 +1520,19 @@ func main() {
 
 	if *showVersion {
 		printVersion()
+		os.Exit(0)
+	}
+
+	if *listFiles != "" {
+		files, err := getEmbeddedFiles(*listFiles)
+		if err != nil {
+			log.Fatalf("Error listing files for preset %s: %v", *listFiles, err)
+		}
+		jsonOutput, err := json.Marshal(files)
+		if err != nil {
+			log.Fatalf("Error encoding files to JSON: %v", err)
+		}
+		fmt.Println(string(jsonOutput))
 		os.Exit(0)
 	}
 

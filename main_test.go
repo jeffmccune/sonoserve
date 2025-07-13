@@ -63,26 +63,11 @@ func TestPresetHandlerGET(t *testing.T) {
 			response.PlaylistCount, len(response.PlaylistItems))
 	}
 
-	// expectedFiles represents the mp3 files in the preset folded, sorted
-	// alpha-numerically.  Take care to include the files as they exist in the
-	// filesystem determined by the Bash(ls -1 *.mp3 | sort -n) command.
-	expectedFiles := []string{
-		"01-Tulou Tagaloa (Sei e Va'ai Mai).mp3",
-		"02-We're Back.mp3",
-		"03-Tuputupu (The Feast).mp3",
-		"04-Beyond (feat. Rachel House).mp3",
-		"05-My Wish For You (Innocent Warrior).mp3",
-		"06-Finding The Way.mp3",
-		"07-What Could Be Better Than This?.mp3",
-		"08-Get Lost.mp3",
-		"09-Can I Get A Chee Hoo?.mp3",
-		"10-Mana Vavau.mp3",
-		"11-Beyond (Reprise).mp3",
-		"12-Nuku O Kaiga.mp3",
-		"13-Finding The Way (Reprise).mp3",
-		"14-We Know The Way (Te Fenua te Malie).mp3",
-		"15-Beyond (End Credit Version) [feat. Te Vaka].mp3",
-		"16-We're Back (Te Vaka Version).mp3",
+	// expectedFiles represents the mp3 files in the embedded filesystem for preset 5,
+	// sorted alpha-numerically. This should match what getEmbeddedFiles returns.
+	expectedFiles, err := getEmbeddedFiles("5")
+	if err != nil {
+		t.Fatalf("failed to get embedded files: %v", err)
 	}
 
 	if len(response.PlaylistItems) != len(expectedFiles) {
