@@ -27,7 +27,7 @@ void setup() {
   
   // Set brightness low to reduce eye strain.
   M5Cardputer.Display.setBrightness(100); // of 255
-  
+
   // Initialize LCD and set large font
   M5Cardputer.Display.setTextSize(2);
   M5Cardputer.Display.setTextColor(WHITE, BLACK);
@@ -465,13 +465,39 @@ void connectToWiFi(const char* ssid, const char* password) {
     M5Cardputer.Display.setTextColor(RED, BLACK);
     M5Cardputer.Display.println("Failed to connect!");
     M5Cardputer.Display.setTextColor(WHITE, BLACK);
-    M5Cardputer.Display.println("\nPress any key to");
-    M5Cardputer.Display.println("restart setup");
+    M5Cardputer.Display.println("\nPress X to reset all");
+    M5Cardputer.Display.println("saved passwords");
+    M5Cardputer.Display.println("\nPress any other key");
+    M5Cardputer.Display.println("to restart setup");
     
     // Wait for keypress
     while (true) {
       M5Cardputer.update();
       if (M5Cardputer.Keyboard.isChange() && M5Cardputer.Keyboard.isPressed()) {
+        Keyboard_Class::KeysState status = M5Cardputer.Keyboard.keysState();
+        for (auto i : status.word) {
+          if (i == 'x' || i == 'X') {
+            // Reset all preferences
+            M5Cardputer.Display.clear();
+            M5Cardputer.Display.setCursor(0, 0);
+            M5Cardputer.Display.setTextColor(YELLOW, BLACK);
+            M5Cardputer.Display.println("Resetting all");
+            M5Cardputer.Display.println("saved passwords...");
+            // Clear all preference namespaces
+            preferences.clear();
+            jamFamilyPrefs.clear();
+            soundHousePrefs.clear();
+            customNetworkPrefs.clear();
+            // Reset
+            M5Cardputer.Display.setTextColor(GREEN, BLACK);
+            M5Cardputer.Display.println("\nDone!");
+            M5Cardputer.Display.setTextColor(WHITE, BLACK);
+            M5Cardputer.Display.println("\nRestarting...");
+            delay(2000);
+            ESP.restart();
+          }
+        }
+        // Any other key restarts
         ESP.restart();
       }
     }
