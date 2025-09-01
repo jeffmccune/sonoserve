@@ -5,11 +5,12 @@
 
 const char* speaker = "Kids Room";
 const char* body = "{\"speaker\": \"Kids Room\"}";
-const char* serverBase = "http://tools:8080/sonos/";
 
 Preferences preferences;
 String storedSSID = "";
 String storedPassword = "";
+// Overridden based on SSID in setup()
+String serverBase = "http://tools:8080/sonos/";
 
 // Screen timeout variables
 unsigned long lastActivityTime = 0;
@@ -36,6 +37,10 @@ void setup() {
   // Load stored WiFi credentials
   storedSSID = preferences.getString("ssid", "");
   storedPassword = preferences.getString("password", "");
+
+  if (storedSSID == "Sound House") {
+    serverBase = "http://192.168.4.88:8080/sonos/";
+  }
   
   // Check for W key press within 3 seconds
   M5Cardputer.Display.println("Press W to change WiFi");
