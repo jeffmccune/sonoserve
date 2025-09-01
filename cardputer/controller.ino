@@ -7,6 +7,9 @@ const char* speaker = "Kids Room";
 const char* body = "{\"speaker\": \"Kids Room\"}";
 
 Preferences preferences;
+Preferences jamFamilyPrefs;
+Preferences soundHousePrefs;
+Preferences customNetworkPrefs;
 String storedSSID = "";
 String storedPassword = "";
 // Overridden based on SSID in setup()
@@ -31,52 +34,136 @@ void setup() {
   M5Cardputer.Display.clear();
   M5Cardputer.Display.setCursor(0, 0);
   
-  // Initialize preferences
-  preferences.begin("wifi-creds", false);
+  // Initialize all preference namespaces
+  jamFamilyPrefs.begin("jam-family", false);
+  soundHousePrefs.begin("sound-house", false);
+  customNetworkPrefs.begin("custom-network", false);
+  preferences.begin("wifi-creds", false); // Keep for backward compatibility
   
-  // Load stored WiFi credentials
-  storedSSID = preferences.getString("ssid", "");
-  storedPassword = preferences.getString("password", "");
-
-  if (storedSSID == "Sound House") {
-    serverBase = "http://192.168.4.88:8080/sonos/";
+  // Scan for WiFi networks immediately
+  M5Cardputer.Display.println("Scanning WiFi...");
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect();
+  delay(100);
+  
+  int n = WiFi.scanNetworks();
+  
+  // Check for known networks
+  bool jamFamilyFound = false;
+  bool soundHouseFound = false;
+  String networkToConnect = "";
+  String passwordToUse = "";
+  
+  for (int i = 0; i < n; i++) {
+    String ssid = WiFi.SSID(i);
+    if (ssid == "JaM Family") {
+      jamFamilyFound = true;
+    } else if (ssid == "Sound House") {
+      soundHouseFound = true;
+    }
   }
   
-  // Check for W key press within 3 seconds
-  M5Cardputer.Display.println("Press W to change WiFi");
-  M5Cardputer.Display.println("Starting in 3...");
+  M5Cardputer.Display.clear();
+  M5Cardputer.Display.setCursor(0, 0);
   
-  bool resetWifi = false;
-  unsigned long startTime = millis();
-  
-  while (millis() - startTime < 3000) {
-    M5Cardputer.update();
-    if (M5Cardputer.Keyboard.isChange() && M5Cardputer.Keyboard.isPressed()) {
-      Keyboard_Class::KeysState status = M5Cardputer.Keyboard.keysState();
-      for (auto i : status.word) {
-        if (i == 'w' || i == 'W') {
-          resetWifi = true;
-          break;
-        }
+  // Priority: JaM Family > Sound House > Custom
+  if (jamFamilyFound) {
+    String jamPassword = jamFamilyPrefs.getString("password", "");
+    if (jamPassword.length() > 0) {
+      // Use stored password for JaM Family
+      networkToConnect = "JaM Family";
+      passwordToUse = jamPassword;
+      storedSSID = networkToConnect;
+      storedPassword = passwordToUse;
+      M5Cardputer.Display.println("Found JaM Family");
+      M5Cardputer.Display.println("Using saved password");
+    } else {
+      // Need to get password for JaM Family
+      M5Cardputer.Display.println("Found JaM Family");
+      M5Cardputer.Display.println("Enter password:");
+      passwordToUse = getPasswordInput();
+      if (passwordToUse.length() > 0) {
+        jamFamilyPrefs.putString("password", passwordToUse);
+        networkToConnect = "JaM Family";
+        storedSSID = networkToConnect;
+        storedPassword = passwordToUse;
       }
     }
-    if (resetWifi) break;
+  } else if (soundHouseFound) {
+    String soundPassword = soundHousePrefs.getString("password", "");
+    if (soundPassword.length() > 0) {
+      // Use stored password for Sound House
+      networkToConnect = "Sound House";
+      passwordToUse = soundPassword;
+      storedSSID = networkToConnect;
+      storedPassword = passwordToUse;
+      serverBase = "http://192.168.4.88:8080/sonos/";
+      M5Cardputer.Display.println("Found Sound House");
+      M5Cardputer.Display.println("Using saved password");
+    } else {
+      // Need to get password for Sound House
+      M5Cardputer.Display.println("Found Sound House");
+      M5Cardputer.Display.println("Enter password:");
+      passwordToUse = getPasswordInput();
+      if (passwordToUse.length() > 0) {
+        soundHousePrefs.putString("password", passwordToUse);
+        networkToConnect = "Sound House";
+        storedSSID = networkToConnect;
+        storedPassword = passwordToUse;
+        serverBase = "http://192.168.4.88:8080/sonos/";
+      }
+    }
+  } else {
+    // No known networks found, check for custom network or do setup
+    String customSSID = customNetworkPrefs.getString("ssid", "");
+    String customPassword = customNetworkPrefs.getString("password", "");
     
-    // Update countdown
-    int remaining = 3 - ((millis() - startTime) / 1000);
-    M5Cardputer.Display.setCursor(0, 2*M5Cardputer.Display.fontHeight());
-    M5Cardputer.Display.print("Starting in ");
-    M5Cardputer.Display.print(remaining);
-    M5Cardputer.Display.println("...");
-    delay(100);
+    if (customSSID.length() > 0) {
+      // Check for W key press to change WiFi
+      M5Cardputer.Display.println("Press W to change WiFi");
+      M5Cardputer.Display.println("Using: " + customSSID);
+      M5Cardputer.Display.println("Starting in 3...");
+      
+      bool resetWifi = false;
+      unsigned long startTime = millis();
+      
+      while (millis() - startTime < 3000) {
+        M5Cardputer.update();
+        if (M5Cardputer.Keyboard.isChange() && M5Cardputer.Keyboard.isPressed()) {
+          Keyboard_Class::KeysState status = M5Cardputer.Keyboard.keysState();
+          for (auto i : status.word) {
+            if (i == 'w' || i == 'W') {
+              resetWifi = true;
+              break;
+            }
+          }
+        }
+        if (resetWifi) break;
+        
+        // Update countdown
+        int remaining = 3 - ((millis() - startTime) / 1000);
+        M5Cardputer.Display.setCursor(0, 3*M5Cardputer.Display.fontHeight());
+        M5Cardputer.Display.print("Starting in ");
+        M5Cardputer.Display.print(remaining);
+        M5Cardputer.Display.println("...");
+        delay(100);
+      }
+      
+      if (!resetWifi) {
+        networkToConnect = customSSID;
+        passwordToUse = customPassword;
+        storedSSID = networkToConnect;
+        storedPassword = passwordToUse;
+      }
+    }
   }
   
-  // If W was pressed or no credentials stored, enter WiFi setup
-  if (resetWifi || storedSSID.length() == 0) {
-    setupWiFi();
+  // If we have a network to connect to, connect
+  if (networkToConnect.length() > 0) {
+    connectToWiFi(networkToConnect.c_str(), passwordToUse.c_str());
   } else {
-    // Connect with stored credentials
-    connectToWiFi(storedSSID.c_str(), storedPassword.c_str());
+    // No network selected, run full setup
+    setupWiFi();
   }
   
   // Display ready indicator
@@ -84,6 +171,105 @@ void setup() {
   
   // Initialize last activity time
   lastActivityTime = millis();
+}
+
+String getPasswordInput() {
+  M5Cardputer.Display.setTextSize(1);
+  M5Cardputer.Display.println("\nEnter password:");
+  M5Cardputer.Display.println("Press Enter/Space to confirm");
+  M5Cardputer.Display.println("Press `/~ to confirm");
+  M5Cardputer.Display.println("Or try fn+M for Enter");
+  M5Cardputer.Display.println("Press ESC to cancel");
+  
+  String password = "";
+  M5Cardputer.Display.setTextSize(2);
+  
+  while (true) {
+    M5Cardputer.update();
+    if (M5Cardputer.Keyboard.isChange()) {
+      if (M5Cardputer.Keyboard.isPressed()) {
+        Keyboard_Class::KeysState status = M5Cardputer.Keyboard.keysState();
+        
+        // Check for Enter key
+        bool enterPressed = false;
+        
+        for (auto i : status.word) {
+          // Debug: Show key values
+          if (i != 0) {
+            M5Cardputer.Display.fillRect(0, 120, 240, 40, BLACK);
+            M5Cardputer.Display.setCursor(0, 120);
+            M5Cardputer.Display.setTextSize(1);
+            M5Cardputer.Display.print("Key: ");
+            M5Cardputer.Display.print(i);
+            M5Cardputer.Display.print(" (0x");
+            M5Cardputer.Display.print(i, HEX);
+            M5Cardputer.Display.print(") '");
+            if (i >= 32 && i <= 126) M5Cardputer.Display.print((char)i);
+            M5Cardputer.Display.print("'");
+            M5Cardputer.Display.setTextSize(2);
+          }
+          
+          // Check various Enter key possibilities
+          if (i == 0x0D || i == 0x0A || i == '\r' || i == '\n' || 
+              i == 13 || i == 10 || i == 0x5A) {
+            enterPressed = true;
+          } 
+          // Check for ESC key
+          else if (i == 0x1B || i == 27) {
+            return ""; // Cancel
+          }
+          // Check for Backspace/Delete
+          else if (i == 0x08 || i == 0x7F || i == 8 || i == 127) {
+            if (password.length() > 0) {
+              password.remove(password.length() - 1);
+              // Update display
+              M5Cardputer.Display.fillRect(0, 80, 240, 40, BLACK);
+              M5Cardputer.Display.setCursor(0, 80);
+              M5Cardputer.Display.print(password);
+            }
+          }
+          // Backtick or tilde as alternate confirm
+          else if (i == '`' || i == '~') {
+            enterPressed = true;
+          }
+          // Space bar as another alternate confirm (common on small keyboards)
+          else if (i == ' ' && password.length() > 0) {
+            // Only accept space as confirm if password has been entered
+            M5Cardputer.Display.fillRect(0, 140, 240, 20, BLACK);
+            M5Cardputer.Display.setCursor(0, 140);
+            M5Cardputer.Display.setTextSize(1);
+            M5Cardputer.Display.print("Space detected - confirming");
+            M5Cardputer.Display.setTextSize(2);
+            enterPressed = true;
+          }
+          // Regular printable characters
+          else if (i >= 32 && i <= 126) {
+            password += (char)i;
+            // Update display
+            M5Cardputer.Display.fillRect(0, 80, 240, 40, BLACK);
+            M5Cardputer.Display.setCursor(0, 80);
+            M5Cardputer.Display.print(password);
+          }
+        }
+        
+        // Also check if fn key is pressed with other keys
+        if (status.fn && !enterPressed) {
+          for (auto i : status.word) {
+            // fn+m might be Enter on some CardPuter layouts
+            if (i == 'm' || i == 'M') {
+              enterPressed = true;
+              break;
+            }
+          }
+        }
+        
+        // If Enter was detected, return the password
+        if (enterPressed) {
+          return password;
+        }
+      }
+    }
+  }
 }
 
 void setupWiFi() {
@@ -237,10 +423,12 @@ void setupWiFi() {
           }
         }
         
-        // If Enter was detected, save and connect
+        // If Enter was detected, save to custom network preferences and connect
         if (enterPressed) {
-          preferences.putString("ssid", selectedSSID);
-          preferences.putString("password", password);
+          customNetworkPrefs.putString("ssid", selectedSSID);
+          customNetworkPrefs.putString("password", password);
+          storedSSID = selectedSSID;
+          storedPassword = password;
           connectToWiFi(selectedSSID.c_str(), password.c_str());
           return;
         }
