@@ -269,3 +269,9 @@ I updated the CardPuter controller.ino file to set the display brightness to 60%
 
 - New `-artwork-timeout` flag (default `30s`, `0` keeps the screen on) is sent as `artwork_timeout_seconds` in the preset response when the preset has artwork.
 - The CardPuter uses it as the screen timeout while artwork is displayed, defaulting to 30 seconds if the field is missing. Pressing a key wakes the screen back to the artwork.
+
+## Turn 14 - Remove apostrophes from mp3 file names
+
+> Rename the mp3 files to remove the apostrophes
+
+`go:embed` rejects `'` in file names, which broke the build. Renamed the three preset 9 tracks to `04-How Far Ill Go.mp3`, `06-How Far Ill Go (Reprise).mp3`, and `07-Youre Welcome.mp3`. The mp3s are git-ignored, so only this log changed in git.
