@@ -275,3 +275,16 @@ I updated the CardPuter controller.ino file to set the display brightness to 60%
 > Rename the mp3 files to remove the apostrophes
 
 `go:embed` rejects `'` in file names, which broke the build. Renamed the three preset 9 tracks to `04-How Far Ill Go.mp3`, `06-How Far Ill Go (Reprise).mp3`, and `07-Youre Welcome.mp3`. The mp3s are git-ignored, so only this log changed in git.
+
+## Turn 15 - Embed artwork in mp3 ID3 tags
+
+> Give me a command to add the artwork.jpg to the id3 tags of each mp3 in preset 9
+
+Suggested an `ffmpeg` loop that stream-copies the audio and attaches `artwork.jpg` as an ID3v2.3 front cover.
+
+> Write a go program "script" to do this for me. Take a path to a preset file as input or iterate over all presets and ensure the artwork is added to each mp3 file as a an id3v2 tag compatible with sonos.
+
+- New `cmd/embed-artwork` (`go run ./cmd/embed-artwork [-n] [preset-dir | file.mp3]...`) uses `github.com/bogem/id3v2/v2`. With no arguments it processes every preset folder under `-presets` (default `music/presets`) that has `artwork.jpg`.
+- Tags are written as ID3v2.3 with a single `APIC` front cover (`image/jpeg`). ID3v2.4 tags are converted: UTF-8 text is re-encoded as ISO-8859-1 or UTF-16, multi-value separators become `/`, and `TDRC`/`TDOR` become `TYER`/`TORY`. Other frames are preserved and the audio is left untouched.
+- Files that already have the artwork are skipped, so it is safe to re-run. `-n` is a dry run. Progressive JPEG artwork is rejected.
+- Ran it on preset 9: all 13 tracks updated, audio stream checksums unchanged, a second run reported no changes.
