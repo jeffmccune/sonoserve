@@ -2,6 +2,7 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <Preferences.h>
+#include <LittleFS.h>
 
 const char* speaker = "Kids Room";
 const char* body = "{\"speaker\": \"Kids Room\"}";
@@ -16,6 +17,13 @@ String storedPassword = "";
 String serverBase = "http://tools:8080/sonos/";
 
 void sendControlRequest(String endpoint, String message, bool showFilename = false);
+
+// Artwork for the last preset, shown on the idle screen until the next preset.
+// Empty when the last preset has no artwork.
+String artworkFile = "";
+String currentPreset = "";
+String currentFilename = "";
+const int ARTWORK_SIZE = 135; // Matches the server -artwork-size and screen height
 
 // Screen timeout variables
 unsigned long lastActivityTime = 0;
@@ -36,6 +44,13 @@ void setup() {
   M5Cardputer.Display.clear();
   M5Cardputer.Display.setCursor(0, 0);
   
+  // Mount flash storage for the artwork cache, formatting it on first use
+  if (LittleFS.begin(true)) {
+    LittleFS.mkdir("/art");
+  } else {
+    M5Cardputer.Display.println("Artwork cache unavailable");
+  }
+
   // Initialize all preference namespaces
   jamFamilyPrefs.begin("jam-family", false);
   soundHousePrefs.begin("sound-house", false);
@@ -549,7 +564,8 @@ void loop() {
   M5Cardputer.update();
   
   // Check for screen timeout
-  if (screenOn && (millis() - lastActivityTime > SCREEN_TIMEOUT)) {
+  // Artwork stays on screen until the next preset
+  if (screenOn && artworkFile.length() == 0 && (millis() - lastActivityTime > SCREEN_TIMEOUT)) {
     // Turn off screen
     M5Cardputer.Display.setBrightness(0);
     screenOn = false;
@@ -565,7 +581,7 @@ void loop() {
       if (!screenOn) {
         M5Cardputer.Display.setBrightness(128); // Default brightness
         screenOn = true;
-        showReady(); // Refresh display
+        showIdle(); // Refresh display
         return; // Don't process this keypress, just wake up
       }
       
@@ -622,23 +638,38 @@ void sendPresetRequest(String preset) {
   http.begin(url);
   http.addHeader("Content-Type", "application/json");
   int httpCode = http.POST(body);
+  String response = http.getString();
+  http.end();
 
   M5Cardputer.Display.clear();
   M5Cardputer.Display.setCursor(0, 0);
   
   if (httpCode == 200) {
-    // Success - display the preset in white and the file name in yellow
+    currentPreset = preset;
+    currentFilename = jsonString(response, "filename");
+    String artworkURL = jsonString(response, "artwork_url");
+    String artworkETag = jsonString(response, "artwork_etag");
+    artworkFile = "";
+    if (artworkURL.length() > 0) {
+      M5Cardputer.Display.println("Loading artwork...");
+      artworkFile = loadArtwork(preset, artworkURL, artworkETag);
+    }
+    if (artworkFile.length() > 0) {
+      // Artwork stays on screen until the next preset
+      drawArtworkScreen();
+      return;
+    }
+    // No artwork - display the preset in white and the file name in yellow
+    M5Cardputer.Display.clear();
+    M5Cardputer.Display.setCursor(0, 0);
     M5Cardputer.Display.setTextColor(WHITE, BLACK);
     M5Cardputer.Display.println("Preset " + preset);
-    displayFilename(http.getString());
+    displayFilename(currentFilename);
   } else {
     // Error - display in red
     M5Cardputer.Display.setTextColor(RED, BLACK);
     M5Cardputer.Display.println("Error: " + String(httpCode));
     M5Cardputer.Display.println("\nResponse:");
-    
-    // Get response
-    String response = http.getString();
     
     // Display response
     if (response.length() > 0) {
@@ -646,11 +677,144 @@ void sendPresetRequest(String preset) {
     }
   }
   
-  http.end();
-  
   // Wait a bit then show ready again
   delay(3000);
-  showReady();
+  showIdle();
+}
+
+// jsonString returns the string value of key in a flat JSON object, or an
+// empty string if the key is absent.
+String jsonString(const String& json, const char* key) {
+  String needle = String("\"") + key + "\":";
+  int i = json.indexOf(needle);
+  if (i < 0) return "";
+  i += needle.length();
+  while (i < (int)json.length() && json[i] == ' ') i++;
+  if (i >= (int)json.length() || json[i] != '"') return "";
+  String value = "";
+  for (i++; i < (int)json.length(); i++) {
+    char c = json[i];
+    if (c == '"') return value;
+    if (c == '\\' && i + 1 < (int)json.length()) {
+      char next = json[++i];
+      if (next == 'u') {
+        i += 4; // Unicode escapes are not expected, show a placeholder
+        value += '?';
+      } else if (next == 'n') {
+        value += ' ';
+      } else {
+        value += next;
+      }
+    } else {
+      value += c;
+    }
+  }
+  return "";
+}
+
+// serverOrigin returns serverBase without the /sonos/ path, e.g. http://tools:8080
+String serverOrigin() {
+  int i = serverBase.indexOf("/sonos/");
+  return i < 0 ? serverBase : serverBase.substring(0, i);
+}
+
+String readTextFile(const String& path) {
+  File f = LittleFS.open(path, "r");
+  if (!f) return "";
+  String text = f.readString();
+  f.close();
+  return text;
+}
+
+// loadArtwork returns the path of the cached artwork for preset, fetching it
+// from the server only when etag differs from the cached checksum. Returns an
+// empty string if no artwork is available.
+String loadArtwork(const String& preset, const String& url, const String& etag) {
+  String jpgPath = "/art/" + preset + ".jpg";
+  String etagPath = "/art/" + preset + ".etag";
+  
+  if (etag.length() > 0 && LittleFS.exists(jpgPath) && readTextFile(etagPath) == etag) {
+    return jpgPath; // Cache hit
+  }
+  
+  HTTPClient http;
+  http.begin(serverOrigin() + url);
+  int httpCode = http.GET();
+  if (httpCode != 200) {
+    http.end();
+    // Fall back to the previously cached artwork, if any
+    return LittleFS.exists(jpgPath) ? jpgPath : "";
+  }
+  
+  // Remove the checksum first so an interrupted download is never a cache hit
+  LittleFS.remove(etagPath);
+  bool ok = false;
+  File f = LittleFS.open(jpgPath, "w");
+  if (f) {
+    ok = http.writeToStream(&f) > 0;
+    f.close();
+  }
+  http.end();
+  
+  if (!ok) {
+    LittleFS.remove(jpgPath);
+    return "";
+  }
+  File e = LittleFS.open(etagPath, "w");
+  if (e) {
+    e.print(etag);
+    e.close();
+  }
+  return jpgPath;
+}
+
+// drawArtworkScreen draws the artwork on the left and the preset and file
+// name in the column to the right.
+void drawArtworkScreen() {
+  M5Cardputer.Display.clear();
+  
+  File f = LittleFS.open(artworkFile, "r");
+  if (f) {
+    size_t len = f.size();
+    uint8_t* buf = (uint8_t*)malloc(len);
+    if (buf) {
+      f.read(buf, len);
+      M5Cardputer.Display.drawJpg(buf, len, 0, 0);
+      free(buf);
+    }
+    f.close();
+  }
+  
+  int x = ARTWORK_SIZE + 5;
+  M5Cardputer.Display.setTextSize(2);
+  M5Cardputer.Display.setTextColor(GREEN, BLACK);
+  M5Cardputer.Display.setCursor(x, 0);
+  M5Cardputer.Display.print(currentPreset);
+  
+  // Wrap the file name into the column with the small font
+  M5Cardputer.Display.setTextSize(1);
+  M5Cardputer.Display.setTextColor(YELLOW, BLACK);
+  int maxChars = (M5Cardputer.Display.width() - x) / M5Cardputer.Display.fontWidth();
+  int lineHeight = M5Cardputer.Display.fontHeight() + 2;
+  int y = 24;
+  for (int i = 0; i < (int)currentFilename.length() && y < M5Cardputer.Display.height(); i += maxChars) {
+    M5Cardputer.Display.setCursor(x, y);
+    M5Cardputer.Display.print(currentFilename.substring(i, i + maxChars));
+    y += lineHeight;
+  }
+  
+  M5Cardputer.Display.setTextSize(2);
+  M5Cardputer.Display.setTextColor(WHITE, BLACK);
+}
+
+// showIdle shows the artwork for the last preset, or the ready screen if it
+// has no artwork.
+void showIdle() {
+  if (artworkFile.length() > 0) {
+    drawArtworkScreen();
+  } else {
+    showReady();
+  }
 }
 
 // displayFilename shows the file name returned by the server in yellow.
@@ -684,7 +848,9 @@ void sendControlRequest(String endpoint, String message, bool showFilename) {
     M5Cardputer.Display.setTextColor(WHITE, BLACK);
     M5Cardputer.Display.println("200 OK - " + endpoint);
     if (showFilename) {
-      displayFilename(http.getString());
+      currentFilename = http.getString();
+      currentFilename.trim();
+      displayFilename(currentFilename);
     }
   } else {
     // Error - display in red
@@ -705,5 +871,5 @@ void sendControlRequest(String endpoint, String message, bool showFilename) {
   
   // Wait a bit then show ready again
   delay(3000);
-  showReady();
+  showIdle();
 }

@@ -27,3 +27,11 @@ sonoserve limits volume and stops playback in the evening.  All times are
 
 The max volume is enforced when a preset starts, on volume up, and at
 `-night-start`.
+
+## Preset artwork
+
+Put an `artwork.jpg` in a preset folder, e.g. `music/presets/9/artwork.jpg`,
+to show it on the CardPuter while the preset plays.  The server scales it to
+fit `-artwork-size` (default `135`, the CardPuter screen height) and returns
+its URL and SHA-256 checksum in the preset response.  The CardPuter caches the
+artwork in flash and fetches it again only when the checksum changes.

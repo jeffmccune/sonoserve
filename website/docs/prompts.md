@@ -249,3 +249,16 @@ I updated the CardPuter controller.ino file to set the display brightness to 60%
 **CardPuter:**
 - a-z keys play presets (lower cased); the P (play/pause) and M (mute) bindings were removed.
 - The file name is displayed after presets and next/previous track.
+
+## Turn 12 - Preset artwork on the CardPuter
+
+> Load artwork.jpg in each preset folder if it exists and return it to the cardputer, which displays it on the screen indefinitely until the next preset button is pushed. The preset play endpoint returns the artwork URL path and a checksum. The cardputer caches the image and etag checksum and only fetches if the artwork changed. Example artwork added in preset 9.
+
+**Server:**
+- New `artwork.go` serves `GET /sonos/artwork/{preset}`. The 1200x1200 source is scaled to fit 135x135 (`-artwork-size`) and re-encoded as a baseline JPEG (~7KB), because the CardPuter has no PSRAM and its decoder does not support progressive JPEGs. Responses carry an `ETag` and honor `If-None-Match`.
+- `POST /sonos/preset/{preset}` now responds with JSON: `preset`, `speaker`, `filename`, plus `artwork_url` and `artwork_etag` (SHA-256 of the served image) when the preset has artwork. `GET` includes the artwork fields too.
+
+**CardPuter:**
+- Artwork and its checksum are cached in LittleFS at `/art/<preset>.jpg` and `.etag`, fetched only when the checksum changes.
+- The artwork is drawn on the left with the preset and file name on the right, and stays on screen (screen timeout skipped) until the next preset. Other controls show their status briefly and return to the artwork.
+- Compiled with the Arduino IDE's bundled arduino-cli for `m5stack:esp32:m5stack_cardputer`.

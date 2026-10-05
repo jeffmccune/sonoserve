@@ -50,6 +50,17 @@ type Speaker struct {
 	Room    string `json:"room"`
 }
 
+// PresetPlayResponse is the response body of POST /sonos/preset/{preset}.
+type PresetPlayResponse struct {
+	Preset   string `json:"preset"`
+	Speaker  string `json:"speaker"`
+	Filename string `json:"filename"`
+	// ArtworkURL is the URL path of the preset artwork, empty if none.
+	ArtworkURL string `json:"artwork_url,omitempty"`
+	// ArtworkETag is the checksum of the artwork served at ArtworkURL.
+	ArtworkETag string `json:"artwork_etag,omitempty"`
+}
+
 type ListItem struct {
 	Index    int    `json:"index"`
 	Title    string `json:"title"`
@@ -178,6 +189,7 @@ func setupRoutes() *http.ServeMux {
 	mux.HandleFunc("/api/sonos/speakers", speakersHandler)
 	mux.HandleFunc("/echo", echoHandler)
 	mux.HandleFunc("/sonos/preset/", presetHandler)
+	mux.HandleFunc("/sonos/artwork/", artworkHandler)
 	mux.HandleFunc("/sonos/play-pause", playPauseHandler)
 	mux.HandleFunc("/sonos/next", nextTrackHandler)
 	mux.HandleFunc("/sonos/previous", previousTrackHandler)
@@ -404,9 +416,25 @@ func playPreset(w http.ResponseWriter, r *http.Request, presetNum string, speake
 	
 	filename := playlistItems[0].Filename
 	log.Printf("Successfully started playing preset %s on %s: %s", presetNum, speaker.Name, filename)
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	
+	response := PresetPlayResponse{
+		Preset:   presetNum,
+		Speaker:  speaker.Name,
+		Filename: filename,
+	}
+	if art, err := getArtwork(presetNum); err != nil {
+		log.Printf("Warning: Failed to load artwork: %v", err)
+	} else if art != nil {
+		response.ArtworkURL = artworkPath(presetNum)
+		response.ArtworkETag = art.ETag
+	}
+	
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(filename + "\n"))
+	// Leave characters such as & unescaped for the CardPuter's simple parser
+	enc := json.NewEncoder(w)
+	enc.SetEscapeHTML(false)
+	enc.Encode(response)
 }
 
 // validPresetName reports whether name is a lower case alphanumeric preset name.
@@ -450,6 +478,12 @@ func presetHandler(w http.ResponseWriter, r *http.Request) {
 			"preset":         presetNum,
 			"playlist_count": len(playlistItems),
 			"playlist_items": playlistItems,
+		}
+		if art, err := getArtwork(presetNum); err != nil {
+			log.Printf("Warning: Failed to load artwork: %v", err)
+		} else if art != nil {
+			response["artwork_url"] = artworkPath(presetNum)
+			response["artwork_etag"] = art.ETag
 		}
 		
 		w.Header().Set("Content-Type", "application/json")
@@ -1573,6 +1607,7 @@ func main() {
 		sleepStart     = flag.String("sleep-timer-start", schedule.SleepTimerStart.String(), "start of the window (HH:MM) when presets set the sleep timer")
 		sleepEnd       = flag.String("sleep-timer-end", schedule.SleepTimerEnd.String(), "end of the window (HH:MM) when presets set the sleep timer")
 		sleepTimer     = flag.Duration("sleep-timer", schedule.SleepTimer, "sleep timer set by presets within the sleep timer window (0 disables)")
+		artworkSizePtr = flag.Int("artwork-size", artworkSize, "maximum width and height in pixels of preset artwork sent to the CardPuter")
 		cutoff         = flag.String("cutoff", schedule.Cutoff.String(), "time of day (HH:MM) playback is stopped (empty disables)")
 	)
 	flag.Parse()
@@ -1600,6 +1635,10 @@ func main() {
 	}
 	schedule.DayMaxVolume = *dayMaxVolume
 	schedule.NightMaxVolume = *nightMaxVolume
+	if *artworkSizePtr < 1 {
+		log.Fatalf("Invalid -artwork-size: %d must be positive", *artworkSizePtr)
+	}
+	artworkSize = *artworkSizePtr
 	
 	// Set global variables
 	resourceHost = *resourceHostPtr

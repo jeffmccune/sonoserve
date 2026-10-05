@@ -881,7 +881,10 @@ curl -s localhost:8080/sonos/preset/5
 ### Play Preset (0-9, a-z)
 ```bash
 # Replace {num} with a number 0-9 or a letter a-z (upper case is lower cased).
-# Responds with the file name of the first track played.
+# Responds with JSON including the file name of the first track played and,
+# if the preset folder has an artwork.jpg, its URL path and checksum:
+# {"preset":"9","speaker":"Kids Room","filename":"01-Tulou Tagaloa.mp3",
+#  "artwork_url":"/sonos/artwork/9","artwork_etag":"0aa012..."}
 curl -X POST localhost:8080/sonos/preset/{num} \
   -H "Content-Type: application/json" \
   -d '{"speaker": "Living Room"}'
@@ -890,6 +893,13 @@ curl -X POST localhost:8080/sonos/preset/{num} \
 curl -X POST localhost:8080/sonos/preset/5 \
   -H "Content-Type: application/json" \
   -d '{"speaker": "Living Room"}'
+```
+
+### Get Preset Artwork
+```bash
+# Serves music/presets/{num}/artwork.jpg scaled to fit 135x135 as a baseline
+# JPEG with an ETag. Responds 404 if the preset has no artwork.
+curl -s -o artwork.jpg localhost:8080/sonos/artwork/9
 ```
 
 ### Get Queue
