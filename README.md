@@ -38,3 +38,18 @@ artwork in flash and fetches it again only when the checksum changes.  It
 shows the artwork until the next preset, turning off the screen after
 `-artwork-timeout` (default `30s`, `0` keeps the screen on), which the server
 sends as `artwork_timeout_seconds` in the preset response.
+
+## MP3 tags
+
+Sonos reads the title, artist, album, and artwork from each mp3's ID3 tags.
+Export the tags of a Music.app playlist to YAML files in the preset folder,
+edit them if needed, then write them and `artwork.jpg` into the mp3 files:
+
+```bash
+go run ./cmd/export-tags -playlist "Moana Live Action Soundtrack" -o music/presets/9
+go run ./cmd/embed-tags music/presets/9
+```
+
+`embed-tags` replaces all existing tags with those in the YAML files.
+`go run ./cmd/embed-artwork` adds only the artwork and keeps the other tags.
+See [MP3 Tags](website/docs/mp3-tags.md) for details.

@@ -288,3 +288,13 @@ Suggested an `ffmpeg` loop that stream-copies the audio and attaches `artwork.jp
 - Tags are written as ID3v2.3 with a single `APIC` front cover (`image/jpeg`). ID3v2.4 tags are converted: UTF-8 text is re-encoded as ISO-8859-1 or UTF-16, multi-value separators become `/`, and `TDRC`/`TDOR` become `TYER`/`TORY`. Other frames are preserved and the audio is left untouched.
 - Files that already have the artwork are skipped, so it is safe to re-run. `-n` is a dry run. Progressive JPEG artwork is rejected.
 - Ran it on preset 9: all 13 tracks updated, audio stream checksums unchanged, a second run reported no changes.
+
+## Turn 16 - Export Music.app tags to YAML and embed them
+
+> Write another go program that interacts with Music.app like the program in the tracks folder does. Have this program "script" in Go read all tracks from the current playlist and write the ID3 metadata to YAML files. Then, add a new cmd script called embed-tags which reads the yaml tags written by the first script, if they exist, and write all ID3v2 tags into the MP3 files. The write should be authoritative, all tags cleared, then the tags written over. Including the artwork, artwork should not clear all tags but should add the artwork in. Document how this works.
+
+- New `cmd/export-tags` runs JavaScript for Automation via `osascript` (reading all track properties in bulk) and writes `NN-<title>.yaml` per track. The playlist is `-playlist NAME`, else the playing playlist, else the one in the front Music window. Existing YAML files are kept unless `-f`.
+- New `cmd/embed-tags` finds each mp3's YAML file (same name, else same track number prefix), removes every ID3v2 frame and any ID3v1 tag, writes the YAML frames as ID3v2.3, then adds `artwork.jpg` as the front cover. Without `artwork.jpg` the file's existing pictures are kept. Files already matching are skipped; `-n` is a dry run.
+- Shared code moved to `internal/mp3tag` (YAML schema, frame mapping, artwork checks, ID3v1 removal, file matching) with unit tests. `embed-artwork` now uses it.
+- Exported the "Moana Live Action Soundtrack" playlist to `music/presets/9/*.yaml` and embedded the tags: 13 files updated, audio unchanged, a second run reported all `ok`.
+- Documented in `website/docs/mp3-tags.md` and the README.

@@ -14,7 +14,6 @@
 package main
 
 import (
-	"bytes"
 	"errors"
 	"flag"
 	"fmt"
@@ -25,13 +24,8 @@ import (
 	"strings"
 
 	"github.com/bogem/id3v2/v2"
+	"github.com/jeffmccune/sonoserve/internal/mp3tag"
 )
-
-// artworkFilename is the artwork image in each preset folder.
-const artworkFilename = "artwork.jpg"
-
-// pictureDescription is the description of the embedded front cover.
-const pictureDescription = "Cover"
 
 // v24Renames maps ID3v2.4 date frames to their ID3v2.3 equivalents.
 var v24Renames = map[string]string{
@@ -44,7 +38,7 @@ func main() {
 	dryRun := flag.Bool("n", false, "report what would change without writing any files")
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s [flags] [preset-dir | file.mp3]...\n\n", os.Args[0])
-		fmt.Fprintf(flag.CommandLine.Output(), "Embeds each preset's %s into its mp3 files as an ID3v2.3 front cover.\n", artworkFilename)
+		fmt.Fprintf(flag.CommandLine.Output(), "Embeds each preset's %s into its mp3 files as an ID3v2.3 front cover.\n", mp3tag.ArtworkFilename)
 		fmt.Fprintf(flag.CommandLine.Output(), "With no paths, processes every preset in -presets that has artwork.\n\n")
 		flag.PrintDefaults()
 	}
@@ -58,7 +52,7 @@ func main() {
 			log.Fatal(err)
 		}
 		if len(dirs) == 0 {
-			log.Fatalf("no presets in %s have %s", *presets, artworkFilename)
+			log.Fatalf("no presets in %s have %s", *presets, mp3tag.ArtworkFilename)
 		}
 		paths = dirs
 	}
@@ -87,7 +81,7 @@ func presetDirs(root string) ([]string, error) {
 			continue
 		}
 		dir := filepath.Join(root, e.Name())
-		if _, err := os.Stat(filepath.Join(dir, artworkFilename)); err == nil {
+		if _, err := os.Stat(filepath.Join(dir, mp3tag.ArtworkFilename)); err == nil {
 			dirs = append(dirs, dir)
 		} else if !errors.Is(err, fs.ErrNotExist) {
 			return nil, err
@@ -116,7 +110,7 @@ func process(path string, dryRun bool) error {
 		dir, files = filepath.Dir(path), []string{path}
 	}
 
-	artwork, err := readArtwork(filepath.Join(dir, artworkFilename))
+	artwork, err := mp3tag.ReadArtwork(filepath.Join(dir, mp3tag.ArtworkFilename))
 	if err != nil {
 		return err
 	}
@@ -138,48 +132,6 @@ func process(path string, dryRun bool) error {
 	return errors.Join(errs...)
 }
 
-// readArtwork reads a JPEG image and checks it is baseline encoded, since
-// some Sonos controllers fail to show progressive JPEG artwork.
-func readArtwork(path string) ([]byte, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	progressive, err := isProgressiveJPEG(data)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", path, err)
-	}
-	if progressive {
-		return nil, fmt.Errorf("%s: progressive JPEG is not supported by Sonos, re-save it as baseline", path)
-	}
-	return data, nil
-}
-
-// isProgressiveJPEG scans the JPEG markers in data for the start of frame
-// marker and reports whether it is progressive (SOF2).
-func isProgressiveJPEG(data []byte) (bool, error) {
-	if len(data) < 2 || data[0] != 0xFF || data[1] != 0xD8 {
-		return false, errors.New("not a JPEG image")
-	}
-	for i := 2; i+4 <= len(data); {
-		if data[i] != 0xFF {
-			return false, errors.New("corrupt JPEG marker")
-		}
-		marker := data[i+1]
-		switch {
-		case marker == 0xFF: // fill byte
-			i++
-			continue
-		case marker == 0xC2:
-			return true, nil
-		case marker >= 0xC0 && marker <= 0xCF && marker != 0xC4 && marker != 0xC8 && marker != 0xCC:
-			return false, nil
-		}
-		i += 2 + (int(data[i+2])<<8 | int(data[i+3]))
-	}
-	return false, errors.New("no JPEG start of frame")
-}
-
 // embed sets artwork as the only picture in the ID3v2.3 tag of file and
 // reports whether the file changed.
 func embed(file string, artwork []byte, dryRun bool) (bool, error) {
@@ -199,28 +151,13 @@ func embed(file string, artwork []byte, dryRun bool) (bool, error) {
 	if tag.Version() != 3 {
 		downgrade(tag)
 	}
-	tag.DeleteFrames("APIC")
-	tag.AddAttachedPicture(id3v2.PictureFrame{
-		Encoding:    id3v2.EncodingISO,
-		MimeType:    "image/jpeg",
-		PictureType: id3v2.PTFrontCover,
-		Description: pictureDescription,
-		Picture:     artwork,
-	})
+	mp3tag.SetArtwork(tag, artwork)
 	return true, tag.Save()
 }
 
 // upToDate reports whether tag is ID3v2.3 with artwork as its only picture.
 func upToDate(tag *id3v2.Tag, artwork []byte) bool {
-	if tag.Version() != 3 {
-		return false
-	}
-	pics := tag.GetFrames("APIC")
-	if len(pics) != 1 {
-		return false
-	}
-	pf, ok := pics[0].(id3v2.PictureFrame)
-	return ok && pf.PictureType == id3v2.PTFrontCover && bytes.Equal(pf.Picture, artwork)
+	return tag.Version() == 3 && mp3tag.HasArtwork(tag, artwork)
 }
 
 // downgrade converts tag to ID3v2.3. UTF-8 text is not allowed in ID3v2.3, so
@@ -271,16 +208,11 @@ func year(timestamp string) string {
 	return timestamp
 }
 
-// encodingFor returns an ID3v2.3 compatible replacement for enc: ISO-8859-1
-// when text is ASCII, otherwise UTF-16 with BOM.
+// encodingFor returns enc if ID3v2.3 allows it, otherwise the ID3v2.3
+// encoding for text.
 func encodingFor(enc id3v2.Encoding, text string) id3v2.Encoding {
 	if enc.Equals(id3v2.EncodingISO) || enc.Equals(id3v2.EncodingUTF16) {
 		return enc
 	}
-	for _, r := range text {
-		if r > 0x7F {
-			return id3v2.EncodingUTF16
-		}
-	}
-	return id3v2.EncodingISO
+	return mp3tag.Encoding(text)
 }
