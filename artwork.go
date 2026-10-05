@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 
 	"golang.org/x/image/draw"
 )
@@ -23,6 +24,10 @@ const artworkFilename = "artwork.jpg"
 // artworkSize is the maximum width and height of artwork served to the
 // CardPuter, whose screen is 240x135. Configured by the -artwork-size flag.
 var artworkSize = 135
+
+// artworkTimeout is how long the CardPuter shows artwork before turning off
+// the screen, zero to keep it on. Configured by the -artwork-timeout flag.
+var artworkTimeout = 30 * time.Second
 
 // Artwork is a preset's artwork scaled for the CardPuter screen.
 type Artwork struct {

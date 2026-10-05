@@ -28,6 +28,9 @@ const int ARTWORK_SIZE = 135; // Matches the server -artwork-size and screen hei
 // Screen timeout variables
 unsigned long lastActivityTime = 0;
 const unsigned long SCREEN_TIMEOUT = 30000; // 30 seconds
+// Screen timeout while artwork is displayed, set by the server's
+// artwork_timeout_seconds. Zero keeps the screen on.
+unsigned long artworkTimeout = SCREEN_TIMEOUT;
 bool screenOn = true;
 
 void setup() {
@@ -564,8 +567,9 @@ void loop() {
   M5Cardputer.update();
   
   // Check for screen timeout
-  // Artwork stays on screen until the next preset
-  if (screenOn && artworkFile.length() == 0 && (millis() - lastActivityTime > SCREEN_TIMEOUT)) {
+  // The server configures how long artwork stays on screen
+  unsigned long timeout = artworkFile.length() > 0 ? artworkTimeout : SCREEN_TIMEOUT;
+  if (screenOn && timeout > 0 && (millis() - lastActivityTime > timeout)) {
     // Turn off screen
     M5Cardputer.Display.setBrightness(0);
     screenOn = false;
@@ -649,13 +653,15 @@ void sendPresetRequest(String preset) {
     currentFilename = jsonString(response, "filename");
     String artworkURL = jsonString(response, "artwork_url");
     String artworkETag = jsonString(response, "artwork_etag");
+    long timeoutSeconds = jsonInt(response, "artwork_timeout_seconds", SCREEN_TIMEOUT / 1000);
+    artworkTimeout = timeoutSeconds < 0 ? SCREEN_TIMEOUT : (unsigned long)timeoutSeconds * 1000;
     artworkFile = "";
     if (artworkURL.length() > 0) {
       M5Cardputer.Display.println("Loading artwork...");
       artworkFile = loadArtwork(preset, artworkURL, artworkETag);
     }
     if (artworkFile.length() > 0) {
-      // Artwork stays on screen until the next preset
+      // Artwork stays on screen until the next preset or the artwork timeout
       drawArtworkScreen();
       return;
     }
@@ -710,6 +716,21 @@ String jsonString(const String& json, const char* key) {
     }
   }
   return "";
+}
+
+// jsonInt returns the integer value of key in a flat JSON object, or
+// defaultValue if the key is absent.
+long jsonInt(const String& json, const char* key, long defaultValue) {
+  String needle = String("\"") + key + "\":";
+  int i = json.indexOf(needle);
+  if (i < 0) return defaultValue;
+  i += needle.length();
+  while (i < (int)json.length() && json[i] == ' ') i++;
+  int start = i;
+  if (i < (int)json.length() && json[i] == '-') i++;
+  while (i < (int)json.length() && isdigit(json[i])) i++;
+  if (i == start) return defaultValue;
+  return json.substring(start, i).toInt();
 }
 
 // serverOrigin returns serverBase without the /sonos/ path, e.g. http://tools:8080

@@ -262,3 +262,10 @@ I updated the CardPuter controller.ino file to set the display brightness to 60%
 - Artwork and its checksum are cached in LittleFS at `/art/<preset>.jpg` and `.etag`, fetched only when the checksum changes.
 - The artwork is drawn on the left with the preset and file name on the right, and stays on screen (screen timeout skipped) until the next preset. Other controls show their status briefly and return to the artwork.
 - Compiled with the Arduino IDE's bundled arduino-cli for `m5stack:esp32:m5stack_cardputer`.
+
+## Turn 13 - Configurable artwork screen timeout
+
+> Bring back the long 30 second timeout. Allow this to be configurable via the server response, default the response to configure the cardputer behavior to display the artwork for 30 seconds.
+
+- New `-artwork-timeout` flag (default `30s`, `0` keeps the screen on) is sent as `artwork_timeout_seconds` in the preset response when the preset has artwork.
+- The CardPuter uses it as the screen timeout while artwork is displayed, defaulting to 30 seconds if the field is missing. Pressing a key wakes the screen back to the artwork.

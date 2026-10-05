@@ -884,7 +884,8 @@ curl -s localhost:8080/sonos/preset/5
 # Responds with JSON including the file name of the first track played and,
 # if the preset folder has an artwork.jpg, its URL path and checksum:
 # {"preset":"9","speaker":"Kids Room","filename":"01-Tulou Tagaloa.mp3",
-#  "artwork_url":"/sonos/artwork/9","artwork_etag":"0aa012..."}
+#  "artwork_url":"/sonos/artwork/9","artwork_etag":"0aa012...",
+#  "artwork_timeout_seconds":30}
 curl -X POST localhost:8080/sonos/preset/{num} \
   -H "Content-Type: application/json" \
   -d '{"speaker": "Living Room"}'

@@ -59,6 +59,9 @@ type PresetPlayResponse struct {
 	ArtworkURL string `json:"artwork_url,omitempty"`
 	// ArtworkETag is the checksum of the artwork served at ArtworkURL.
 	ArtworkETag string `json:"artwork_etag,omitempty"`
+	// ArtworkTimeoutSeconds is how long the CardPuter shows the artwork
+	// before turning off the screen, zero to keep it on.
+	ArtworkTimeoutSeconds *int `json:"artwork_timeout_seconds,omitempty"`
 }
 
 type ListItem struct {
@@ -427,6 +430,8 @@ func playPreset(w http.ResponseWriter, r *http.Request, presetNum string, speake
 	} else if art != nil {
 		response.ArtworkURL = artworkPath(presetNum)
 		response.ArtworkETag = art.ETag
+		timeout := int(artworkTimeout / time.Second)
+		response.ArtworkTimeoutSeconds = &timeout
 	}
 	
 	w.Header().Set("Content-Type", "application/json")
@@ -1607,6 +1612,7 @@ func main() {
 		sleepStart     = flag.String("sleep-timer-start", schedule.SleepTimerStart.String(), "start of the window (HH:MM) when presets set the sleep timer")
 		sleepEnd       = flag.String("sleep-timer-end", schedule.SleepTimerEnd.String(), "end of the window (HH:MM) when presets set the sleep timer")
 		sleepTimer     = flag.Duration("sleep-timer", schedule.SleepTimer, "sleep timer set by presets within the sleep timer window (0 disables)")
+		artworkTimeoutPtr = flag.Duration("artwork-timeout", artworkTimeout, "how long the CardPuter shows preset artwork before turning off the screen (0 keeps it on)")
 		artworkSizePtr = flag.Int("artwork-size", artworkSize, "maximum width and height in pixels of preset artwork sent to the CardPuter")
 		cutoff         = flag.String("cutoff", schedule.Cutoff.String(), "time of day (HH:MM) playback is stopped (empty disables)")
 	)
@@ -1639,6 +1645,10 @@ func main() {
 		log.Fatalf("Invalid -artwork-size: %d must be positive", *artworkSizePtr)
 	}
 	artworkSize = *artworkSizePtr
+	if *artworkTimeoutPtr < 0 {
+		log.Fatalf("Invalid -artwork-timeout: %s must not be negative", *artworkTimeoutPtr)
+	}
+	artworkTimeout = *artworkTimeoutPtr
 	
 	// Set global variables
 	resourceHost = *resourceHostPtr
