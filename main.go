@@ -316,10 +316,15 @@ func playPreset(w http.ResponseWriter, r *http.Request, presetNum string, speake
 	}
 	
 	// Create Sonos connection with AV Transport and Content Directory services
-	s := sonos.MakeSonos(svcMap, nil, sonos.SVC_AV_TRANSPORT|sonos.SVC_CONTENT_DIRECTORY)
+	s := sonos.MakeSonos(svcMap, nil, sonos.SVC_AV_TRANSPORT|sonos.SVC_CONTENT_DIRECTORY|sonos.SVC_RENDERING_CONTROL)
 	if s == nil {
 		log.Printf("Failed to create Sonos connection")
 		http.Error(w, "Failed to connect to speaker", http.StatusInternalServerError)
+		return
+	}
+	
+	if len(playlistItems) == 0 {
+		http.Error(w, fmt.Sprintf("Preset %s has no tracks", presetNum), http.StatusNotFound)
 		return
 	}
 	
@@ -374,6 +379,12 @@ func playPreset(w http.ResponseWriter, r *http.Request, presetNum string, speake
 	
 	log.Printf("Queue URI set successfully, starting playback...")
 	
+	// Enforce the time of day volume limit before playback starts
+	now := time.Now()
+	if err := enforceMaxVolume(s, speaker.Name, now); err != nil {
+		log.Printf("Warning: Failed to enforce max volume: %v", err)
+	}
+	
 	// Start playback from the queue
 	err = s.Play(0, "1")
 	if err != nil {
@@ -382,16 +393,40 @@ func playPreset(w http.ResponseWriter, r *http.Request, presetNum string, speake
 		return
 	}
 	
-	log.Printf("Successfully started playing preset %s on %s", presetNum, speaker.Name)
+	// Set the sleep timer in the evening to ensure playback stops
+	if d := schedule.SleepTimerAt(now); d > 0 {
+		if err := s.ConfigureSleepTimer(0, formatSleepTimer(d)); err != nil {
+			log.Printf("Warning: Failed to set sleep timer: %v", err)
+		} else {
+			log.Printf("Set sleep timer on %s to %s", speaker.Name, d)
+		}
+	}
+	
+	filename := playlistItems[0].Filename
+	log.Printf("Successfully started playing preset %s on %s: %s", presetNum, speaker.Name, filename)
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(fmt.Sprintf("Playing preset %s on %s\n", presetNum, speaker.Name)))
+	w.Write([]byte(filename + "\n"))
+}
+
+// validPresetName reports whether name is a lower case alphanumeric preset name.
+func validPresetName(name string) bool {
+	if name == "" {
+		return false
+	}
+	for _, c := range name {
+		if !(c >= 'a' && c <= 'z') && !(c >= '0' && c <= '9') {
+			return false
+		}
+	}
+	return true
 }
 
 func presetHandler(w http.ResponseWriter, r *http.Request) {
 	// Extract preset number from path
 	path := r.URL.Path
-	presetNum := strings.TrimPrefix(path, "/sonos/preset/")
-	if presetNum == "" || presetNum == path {
+	presetNum := strings.ToLower(strings.TrimPrefix(path, "/sonos/preset/"))
+	if presetNum == "" || !strings.HasPrefix(path, "/sonos/preset/") || !validPresetName(presetNum) {
 		http.Error(w, "Invalid preset path", http.StatusBadRequest)
 		return
 	}
@@ -1202,9 +1237,17 @@ func nextTrackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	log.Printf("Successfully skipped to next track on %s", speaker.Name)
+	filename, err := currentTrackFilename(s)
+	if err != nil {
+		log.Printf("Failed to get current track: %v", err)
+		http.Error(w, "Failed to get current track", http.StatusInternalServerError)
+		return
+	}
+	
+	log.Printf("Successfully skipped to next track on %s: %s", speaker.Name, filename)
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(fmt.Sprintf("Next track on %s\n", speaker.Name)))
+	w.Write([]byte(filename + "\n"))
 }
 
 func previousTrackHandler(w http.ResponseWriter, r *http.Request) {
@@ -1264,9 +1307,17 @@ func previousTrackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	log.Printf("Successfully skipped to previous track on %s", speaker.Name)
+	filename, err := currentTrackFilename(s)
+	if err != nil {
+		log.Printf("Failed to get current track: %v", err)
+		http.Error(w, "Failed to get current track", http.StatusInternalServerError)
+		return
+	}
+	
+	log.Printf("Successfully skipped to previous track on %s: %s", speaker.Name, filename)
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(fmt.Sprintf("Previous track on %s\n", speaker.Name)))
+	w.Write([]byte(filename + "\n"))
 }
 
 func volumeUpHandler(w http.ResponseWriter, r *http.Request) {
@@ -1326,10 +1377,11 @@ func volumeUpHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	// Increase volume by 5%, max 100
+	// Increase volume by 5%, up to the time of day limit
+	limit := uint16(schedule.MaxVolume(time.Now()))
 	newVolume := currentVolume + 5
-	if newVolume > 100 {
-		newVolume = 100
+	if newVolume > limit {
+		newVolume = limit
 	}
 	
 	// Set new volume
@@ -1514,8 +1566,40 @@ func main() {
 		addr           = flag.String("addr", ":8080", "server listen address (interface:port)")
 		resourceHostPtr = flag.String("resource-host", defaultResourceHost, "host:port for external devices to fetch resources from this server")
 		defaultSpeakerPtr = flag.String("default-speaker", "Kids Room", "default speaker name to use when not specified")
+		dayStart       = flag.String("day-start", schedule.DayStart.String(), "time of day (HH:MM) the day max volume takes effect")
+		dayMaxVolume   = flag.Int("day-max-volume", schedule.DayMaxVolume, "maximum volume from -day-start until -night-start")
+		nightStart     = flag.String("night-start", schedule.NightStart.String(), "time of day (HH:MM) the night max volume takes effect")
+		nightMaxVolume = flag.Int("night-max-volume", schedule.NightMaxVolume, "maximum volume from -night-start until -day-start")
+		sleepStart     = flag.String("sleep-timer-start", schedule.SleepTimerStart.String(), "start of the window (HH:MM) when presets set the sleep timer")
+		sleepEnd       = flag.String("sleep-timer-end", schedule.SleepTimerEnd.String(), "end of the window (HH:MM) when presets set the sleep timer")
+		sleepTimer     = flag.Duration("sleep-timer", schedule.SleepTimer, "sleep timer set by presets within the sleep timer window (0 disables)")
+		cutoff         = flag.String("cutoff", schedule.Cutoff.String(), "time of day (HH:MM) playback is stopped (empty disables)")
 	)
 	flag.Parse()
+	
+	parse := func(name, value string) timeOfDay {
+		t, perr := parseTimeOfDay(value)
+		if perr != nil {
+			log.Fatalf("Invalid -%s: %v", name, perr)
+		}
+		return t
+	}
+	schedule.DayStart = parse("day-start", *dayStart)
+	schedule.NightStart = parse("night-start", *nightStart)
+	schedule.SleepTimerStart = parse("sleep-timer-start", *sleepStart)
+	schedule.SleepTimerEnd = parse("sleep-timer-end", *sleepEnd)
+	schedule.SleepTimer = *sleepTimer
+	schedule.CutoffEnabled = *cutoff != ""
+	if schedule.CutoffEnabled {
+		schedule.Cutoff = parse("cutoff", *cutoff)
+	}
+	for name, v := range map[string]int{"day-max-volume": *dayMaxVolume, "night-max-volume": *nightMaxVolume} {
+		if v < 0 || v > 100 {
+			log.Fatalf("Invalid -%s: %d must be between 0 and 100", name, v)
+		}
+	}
+	schedule.DayMaxVolume = *dayMaxVolume
+	schedule.NightMaxVolume = *nightMaxVolume
 	
 	// Set global variables
 	resourceHost = *resourceHostPtr
@@ -1527,7 +1611,7 @@ func main() {
 	}
 
 	if *listFiles != "" {
-		files, err := getEmbeddedFiles(*listFiles)
+		files, err := getEmbeddedFiles(strings.ToLower(*listFiles))
 		if err != nil {
 			log.Fatalf("Error listing files for preset %s: %v", *listFiles, err)
 		}
@@ -1545,6 +1629,13 @@ func main() {
 	}
 	log.Printf("Listen address: %s", *addr)
 	log.Printf("Resource host: %s", resourceHost)
+	log.Printf("Max volume: %d from %s, %d from %s", schedule.DayMaxVolume, schedule.DayStart, schedule.NightMaxVolume, schedule.NightStart)
+	log.Printf("Sleep timer: %s for presets from %s to %s", schedule.SleepTimer, schedule.SleepTimerStart, schedule.SleepTimerEnd)
+	if schedule.CutoffEnabled {
+		log.Printf("Playback cutoff: %s", schedule.Cutoff)
+	}
+	
+	go runScheduler()
 
 	// Perform initial Sonos discovery on startup
 	log.Println("Performing initial Sonos discovery...")

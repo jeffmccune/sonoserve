@@ -15,6 +15,8 @@ String storedPassword = "";
 // Overridden based on SSID in setup()
 String serverBase = "http://tools:8080/sonos/";
 
+void sendControlRequest(String endpoint, String message, bool showFilename = false);
+
 // Screen timeout variables
 unsigned long lastActivityTime = 0;
 const unsigned long SCREEN_TIMEOUT = 30000; // 30 seconds
@@ -512,11 +514,10 @@ void showReady() {
   M5Cardputer.Display.print("READY ");
   M5Cardputer.Display.setTextColor(WHITE, BLACK);
   M5Cardputer.Display.println(speaker);
-  M5Cardputer.Display.println("1-9 Presets");
+  M5Cardputer.Display.println("0-9 a-z Presets");
   M5Cardputer.Display.println(", / Prev/Next");
   M5Cardputer.Display.println("; . Volume");
-  M5Cardputer.Display.println("P   Play/Pause");
-  M5Cardputer.Display.println("M   Mute");
+  M5Cardputer.Display.println("[ ] Pause/Play");
   
   // Display battery info on last line
   displayBatteryInfo();
@@ -572,9 +573,9 @@ void loop() {
       
       // Check for keys
       for (auto i : status.word) {
-        if (i >= '0' && i <= '9') {
-          // Number key - send preset
-          String preset = String((char)i);
+        if ((i >= '0' && i <= '9') || isalpha(i)) {
+          // Number or letter key - send preset, lower cased
+          String preset = String((char)tolower(i));
           sendPresetRequest(preset);
           break;
         } else if (i == '[') {
@@ -585,21 +586,13 @@ void loop() {
           // Play
           sendControlRequest("play", "Playing...");
           break;
-        } else if (i == 'p' || i == 'P') {
-          // Play/Pause Toggle
-          sendControlRequest("play-pause", "Toggling play/pause...");
-          break;
-        } else if (i == 'm' || i == 'M') {
-          // Mute
-          sendControlRequest("mute", "Toggling mute...");
-          break;
         } else if (i == ',') {  // Left arrow key
           // Previous
-          sendControlRequest("previous", "Previous track...");
+          sendControlRequest("previous", "Previous track...", true);
           break;
         } else if (i == '/') {  // Right arrow key
           // Next
-          sendControlRequest("next", "Next track...");
+          sendControlRequest("next", "Next track...", true);
           break;
         } else if (i == ';') {  // Up arrow key
           // Volume up
@@ -634,9 +627,10 @@ void sendPresetRequest(String preset) {
   M5Cardputer.Display.setCursor(0, 0);
   
   if (httpCode == 200) {
-    // Success - display in white
+    // Success - display the preset in white and the file name in yellow
     M5Cardputer.Display.setTextColor(WHITE, BLACK);
-    M5Cardputer.Display.println("200 OK - Preset " + preset);
+    M5Cardputer.Display.println("Preset " + preset);
+    displayFilename(http.getString());
   } else {
     // Error - display in red
     M5Cardputer.Display.setTextColor(RED, BLACK);
@@ -659,7 +653,15 @@ void sendPresetRequest(String preset) {
   showReady();
 }
 
-void sendControlRequest(String endpoint, String message) {
+// displayFilename shows the file name returned by the server in yellow.
+void displayFilename(String filename) {
+  filename.trim();
+  M5Cardputer.Display.setTextColor(YELLOW, BLACK);
+  M5Cardputer.Display.println(filename);
+  M5Cardputer.Display.setTextColor(WHITE, BLACK);
+}
+
+void sendControlRequest(String endpoint, String message, bool showFilename) {
   // Reset activity timer
   lastActivityTime = millis();
   
@@ -681,6 +683,9 @@ void sendControlRequest(String endpoint, String message) {
     // Success - display in white
     M5Cardputer.Display.setTextColor(WHITE, BLACK);
     M5Cardputer.Display.println("200 OK - " + endpoint);
+    if (showFilename) {
+      displayFilename(http.getString());
+    }
   } else {
     // Error - display in red
     M5Cardputer.Display.setTextColor(RED, BLACK);

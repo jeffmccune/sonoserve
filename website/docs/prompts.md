@@ -236,3 +236,16 @@ I updated the CardPuter controller.ino file to set the display brightness to 60%
 - CardPuter now starts with 60% brightness instead of default maximum
 - Provides better battery life and more comfortable viewing
 - Consistent brightness setting from startup
+## Turn 11 - Letter presets, file names, and time of day limits
+
+> Support playlist presets with letters a-z in addition to numbers, lower cased, removing existing letter key bindings. Return the file name played from the preset, next, and previous handlers and display it on the CardPuter. Add configurable flags: max volume 40 at 7:00 AM and 15 at 6:30 PM; a 30 minute sleep timer for presets between 6:30 PM and 4 AM; a hard playback cutoff at 7:45 PM. Push and open a pull request.
+
+**Server:**
+- Preset names are lower cased and must be alphanumeric, so `/sonos/preset/G` plays preset `g`.
+- `POST /sonos/preset/{x}` responds with the file name of the first track; `/sonos/next` and `/sonos/previous` respond with the new current track's file name.
+- New `schedule.go` adds flags `-day-start`, `-day-max-volume`, `-night-start`, `-night-max-volume`, `-sleep-timer-start`, `-sleep-timer-end`, `-sleep-timer`, and `-cutoff`.
+- The max volume is enforced when a preset starts, on volume up, and at night start. Presets in the sleep window set the Sonos sleep timer. A background scheduler stops the default speaker at the cutoff, retrying for up to 10 minutes.
+
+**CardPuter:**
+- a-z keys play presets (lower cased); the P (play/pause) and M (mute) bindings were removed.
+- The file name is displayed after presets and next/previous track.

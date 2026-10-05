@@ -736,12 +736,11 @@ Quick access to preset playlists:
 View the contents of any preset playlist before playing it:
 
 <div style={{marginTop: '20px'}}>
-  <label style={{marginRight: '10px'}}>Preset Number:</label>
+  <label style={{marginRight: '10px'}}>Preset (0-9, a-z):</label>
   <input 
     id="presetInput" 
-    type="number" 
-    min="0" 
-    max="9" 
+    type="text" 
+    maxLength="1" 
     defaultValue="5"
     style={{
       padding: '5px 10px',
@@ -754,7 +753,7 @@ View the contents of any preset playlist before playing it:
   />
   <button 
     onClick={() => {
-      const presetNum = document.getElementById('presetInput').value;
+      const presetNum = document.getElementById('presetInput').value.toLowerCase();
       const server = document.getElementById('serverInput').value || 'localhost:8080';
       const url = (window.location.host === server) 
         ? `/sonos/preset/${presetNum}` 
@@ -872,16 +871,17 @@ curl -X POST localhost:8080/sonos/restart-playlist \
 
 ### Get Preset Playlist (View Contents)
 ```bash
-# Replace {num} with a number 0-9
+# Replace {num} with a number 0-9 or a letter a-z
 curl -s localhost:8080/sonos/preset/{num}
 
 # Example for preset 5:
 curl -s localhost:8080/sonos/preset/5
 ```
 
-### Play Preset (0-9)
+### Play Preset (0-9, a-z)
 ```bash
-# Replace {num} with a number 0-9
+# Replace {num} with a number 0-9 or a letter a-z (upper case is lower cased).
+# Responds with the file name of the first track played.
 curl -X POST localhost:8080/sonos/preset/{num} \
   -H "Content-Type: application/json" \
   -d '{"speaker": "Living Room"}'
@@ -908,6 +908,7 @@ curl -X POST localhost:8080/sonos/play-pause \
 
 ### Next Track
 ```bash
+# Responds with the file name of the new current track.
 curl -X POST localhost:8080/sonos/next \
   -H "Content-Type: application/json" \
   -d '{"speaker": "Living Room"}'
@@ -915,6 +916,7 @@ curl -X POST localhost:8080/sonos/next \
 
 ### Previous Track
 ```bash
+# Responds with the file name of the new current track.
 curl -X POST localhost:8080/sonos/previous \
   -H "Content-Type: application/json" \
   -d '{"speaker": "Living Room"}'
