@@ -13,11 +13,12 @@ import (
 
 func TestFileName(t *testing.T) {
 	tests := map[string]string{
-		"You're Welcome":                  "Youre Welcome",
-		"Prologue:  Beauty and the Beast": "Prologue Beauty and the Beast",
-		"Old McColl’s Farm":               "Old McColls Farm",
-		"Wi$h Li$t":                       "Wi$h Li$t",
-		"Tala's Deathbed":                 "Talas Deathbed",
+		"You're Welcome":                     "Youre Welcome",
+		"Prologue:  Beauty and the Beast":    "Prologue Beauty and the Beast",
+		"Old McColl’s Farm":                  "Old McColls Farm",
+		"Wi$h Li$t":                          "Wi$h Li$t",
+		"Tala's Deathbed":                    "Talas Deathbed",
+		"All Is Fair (Reprise/Instrumental)": "All Is Fair (Reprise Instrumental)",
 	}
 	for in, want := range tests {
 		if got := FileName(in); got != want {

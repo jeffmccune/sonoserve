@@ -29,7 +29,7 @@ supported combination. ID3v2.4 and UTF-8 text are avoided.
 
    ```bash
    echo "Moana Live Action Soundtrack" > music/presets/9/playlist-name.txt
-   go run ./cmd/export-tags -o music/presets/9
+   go run ./cmd/export-tags music/presets/9
    ```
 
 4. Review and edit the YAML files. Music.app metadata is sometimes wrong, for
@@ -50,19 +50,26 @@ rewritten.
 ## export-tags
 
 `export-tags` runs JavaScript for Automation through `osascript`, like the
-program in the `tracks` folder, and writes one YAML file per track to the `-o`
-directory (default `.`).
+program in the `tracks` folder, and writes one YAML file per track to the
+preset folder:
+
+```bash
+go run ./cmd/export-tags [-playlist NAME] [-f] [preset-dir]
+```
+
+The folder is the argument, or the `-o` flag, and defaults to the current
+directory.
 
 | Flag | Default | Description |
 |---|---|---|
 | `-playlist` | | Name of the Music.app playlist, overrides `playlist-name.txt` |
-| `-o` | `.` | Directory to write the YAML files to, usually the preset folder |
+| `-o` | `.` | Directory to write the YAML files to, same as the argument |
 | `-f` | `false` | Overwrite existing YAML files, which are kept by default so hand edits are not lost |
 
 The playlist is, in order of preference:
 
 1. The `-playlist` flag.
-2. The contents of `playlist-name.txt` in the `-o` folder, if the file exists.
+2. The contents of `playlist-name.txt` in the preset folder, if the file exists.
    Leading and trailing whitespace is ignored, and an empty file is an error.
 3. The playlist that is currently playing.
 4. The playlist shown in the front Music window.
@@ -75,7 +82,8 @@ The playlist name is recorded in the comment at the top of each YAML file.
 Files are named like the mp3 files Audacity exports with "Numbering before
 Label": the position in the playlist, a dash, and the track name without the
 characters `go:embed` rejects. The fourth track, "How Far I'll Go", becomes
-`04-How Far Ill Go.yaml`, matching `04-How Far Ill Go.mp3`.
+`04-How Far Ill Go.yaml`, matching `04-How Far Ill Go.mp3`. Slashes become
+spaces, so "Reprise/Instrumental" becomes "Reprise Instrumental".
 
 ```yaml
 # Exported by export-tags from Music.app playlist "Moana Live Action Soundtrack", track 1 of 13.

@@ -265,11 +265,12 @@ func StripID3v1(file string) error {
 
 // FileName returns name with the characters go:embed rejects removed, so it
 // can be used as a file name in the embedded music folder. Apostrophes are
-// the most common, e.g. "You're Welcome" becomes "Youre Welcome".
+// the most common, e.g. "You're Welcome" becomes "Youre Welcome". Slashes
+// become spaces, e.g. "Reprise/Instrumental" becomes "Reprise Instrumental".
 func FileName(name string) string {
 	const allowed = "!#$%&()+,-.=@[]^_{}~ "
 	var b strings.Builder
-	for _, r := range name {
+	for _, r := range strings.ReplaceAll(name, "/", " ") {
 		ok := unicode.IsLetter(r)
 		if r < utf8.RuneSelf {
 			ok = '0' <= r && r <= '9' || 'A' <= r && r <= 'Z' || 'a' <= r && r <= 'z' || strings.ContainsRune(allowed, r)

@@ -305,3 +305,13 @@ Suggested an `ffmpeg` loop that stream-copies the audio and attaches `artwork.jp
 
 - `export-tags` reads `playlist-name.txt` from the `-o` folder when `-playlist` is not given, and exports that playlist. Its name is recorded in the header comment of each YAML file. An empty file is an error. Precedence: `-playlist`, `playlist-name.txt`, the playing playlist, the front Music window.
 - Added `music/presets/9/playlist-name.txt` ("Moana Live Action Soundtrack") and updated `website/docs/mp3-tags.md` and the README.
+
+## Turn 18 - export-tags ignored the preset folder argument
+
+> I ran these two but the second said "no tags" this is from my zsh history `go run ./cmd/export-tags ./music/presets/3` then `go run ./cmd/embed-tags ./music/presets/3`
+
+`export-tags` only took the folder from `-o`, so it ignored the argument, read no `playlist-name.txt`, exported the playing playlist, and wrote the YAML files to the repo root. `embed-tags` then found no YAML files in preset 3.
+
+- `export-tags` now takes the preset folder as an optional argument, like `embed-tags`. `-o` still works; more than one argument prints usage.
+- File names map `/` to a space, so "Reprise/Instrumental" matches the mp3 name "Reprise Instrumental".
+- Removed the 47 YAML files from the repo root and re-ran both commands: 47 YAML files in preset 3 from `playlist-name.txt` ("Snow White"), 47 mp3 files updated, a second run all `ok`.

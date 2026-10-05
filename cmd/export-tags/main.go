@@ -10,8 +10,8 @@
 //
 // Usage:
 //
-//	go run ./cmd/export-tags -o music/presets/9   # uses music/presets/9/playlist-name.txt if it exists
-//	go run ./cmd/export-tags -playlist "Moana Live Action Soundtrack" -o music/presets/9
+//	go run ./cmd/export-tags music/presets/9   # uses music/presets/9/playlist-name.txt if it exists
+//	go run ./cmd/export-tags -playlist "Moana Live Action Soundtrack" music/presets/9
 package main
 
 import (
@@ -145,14 +145,22 @@ func (t Track) Tags() *mp3tag.Tags {
 
 func main() {
 	playlistName := flag.String("playlist", "", "name of the Music.app playlist (default: the one in "+playlistNameFile+" in the -o folder, the current playlist, or the one in the front window)")
-	outDir := flag.String("o", ".", "directory to write the YAML tags files to, usually the preset folder")
+	outDir := flag.String("o", ".", "directory to write the YAML tags files to, usually the preset folder (or pass it as an argument)")
 	force := flag.Bool("f", false, "overwrite existing tags files")
 	flag.Usage = func() {
-		fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s [flags]\n\n", os.Args[0])
+		fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s [flags] [preset-dir]\n\n", os.Args[0])
 		fmt.Fprintf(flag.CommandLine.Output(), "Writes a YAML tags file for each track of a Music.app playlist.\n\n")
 		flag.PrintDefaults()
 	}
 	flag.Parse()
+	switch flag.NArg() {
+	case 0:
+	case 1:
+		*outDir = flag.Arg(0)
+	default:
+		flag.Usage()
+		os.Exit(2)
+	}
 	log.SetFlags(0)
 
 	name := *playlistName

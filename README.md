@@ -49,7 +49,7 @@ folder if it exists:
 
 ```bash
 echo "Moana Live Action Soundtrack" > music/presets/9/playlist-name.txt
-go run ./cmd/export-tags -o music/presets/9
+go run ./cmd/export-tags music/presets/9
 go run ./cmd/embed-tags music/presets/9
 ```
 
