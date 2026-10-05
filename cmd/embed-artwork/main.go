@@ -1,6 +1,7 @@
-// Command embed-artwork embeds each preset's artwork.jpg into the ID3v2 tag of
-// every mp3 file in the preset as the front cover, so Sonos shows the artwork
-// while the preset plays.
+// Command embed-artwork embeds artwork into the ID3v2 tag of every mp3 file
+// in a preset as the front cover, so Sonos shows the artwork while the preset
+// plays. Each mp3 file uses its own artwork JPEG exported by export-tags if it
+// has one, otherwise the preset's artwork.jpg. Files with neither are skipped.
 //
 // Tags are written as ID3v2.3 with ISO-8859-1 or UTF-16 text, the most widely
 // supported combination. Existing frames are preserved and existing pictures
@@ -8,7 +9,7 @@
 //
 // Usage:
 //
-//	go run ./cmd/embed-artwork                       # every preset with artwork
+//	go run ./cmd/embed-artwork                       # every preset
 //	go run ./cmd/embed-artwork music/presets/9       # one preset directory
 //	go run ./cmd/embed-artwork music/presets/9/01-Tulou\ Tagaloa.mp3
 package main
@@ -17,7 +18,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
@@ -38,8 +38,8 @@ func main() {
 	dryRun := flag.Bool("n", false, "report what would change without writing any files")
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s [flags] [preset-dir | file.mp3]...\n\n", os.Args[0])
-		fmt.Fprintf(flag.CommandLine.Output(), "Embeds each preset's %s into its mp3 files as an ID3v2.3 front cover.\n", mp3tag.ArtworkFilename)
-		fmt.Fprintf(flag.CommandLine.Output(), "With no paths, processes every preset in -presets that has artwork.\n\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "Embeds each mp3 file's artwork JPEG, or the preset's %s, as an ID3v2.3 front cover.\n", mp3tag.ArtworkFilename)
+		fmt.Fprintf(flag.CommandLine.Output(), "With no paths, processes every preset in -presets.\n\n")
 		flag.PrintDefaults()
 	}
 	flag.Parse()
@@ -47,14 +47,15 @@ func main() {
 
 	paths := flag.Args()
 	if len(paths) == 0 {
-		dirs, err := presetDirs(*presets)
+		entries, err := os.ReadDir(*presets)
 		if err != nil {
 			log.Fatal(err)
 		}
-		if len(dirs) == 0 {
-			log.Fatalf("no presets in %s have %s", *presets, mp3tag.ArtworkFilename)
+		for _, e := range entries {
+			if e.IsDir() {
+				paths = append(paths, filepath.Join(*presets, e.Name()))
+			}
 		}
-		paths = dirs
 	}
 
 	failed := false
@@ -69,27 +70,6 @@ func main() {
 	}
 }
 
-// presetDirs returns the preset directories under root that contain artwork.
-func presetDirs(root string) ([]string, error) {
-	entries, err := os.ReadDir(root)
-	if err != nil {
-		return nil, err
-	}
-	var dirs []string
-	for _, e := range entries {
-		if !e.IsDir() {
-			continue
-		}
-		dir := filepath.Join(root, e.Name())
-		if _, err := os.Stat(filepath.Join(dir, mp3tag.ArtworkFilename)); err == nil {
-			dirs = append(dirs, dir)
-		} else if !errors.Is(err, fs.ErrNotExist) {
-			return nil, err
-		}
-	}
-	return dirs, nil
-}
-
 // process embeds artwork into a single mp3 file, or into every mp3 file of a
 // preset directory.
 func process(path string, dryRun bool) error {
@@ -97,26 +77,34 @@ func process(path string, dryRun bool) error {
 	if err != nil {
 		return err
 	}
-	dir, files := path, []string(nil)
+	files := []string{path}
 	if info.IsDir() {
-		files, err = filepath.Glob(filepath.Join(dir, "*.mp3"))
-		if err != nil {
+		if files, err = filepath.Glob(filepath.Join(path, "*.mp3")); err != nil {
 			return err
 		}
-		if len(files) == 0 {
-			return fmt.Errorf("%s: no mp3 files", dir)
-		}
-	} else {
-		dir, files = filepath.Dir(path), []string{path}
-	}
-
-	artwork, err := mp3tag.ReadArtwork(filepath.Join(dir, mp3tag.ArtworkFilename))
-	if err != nil {
-		return err
 	}
 
 	var errs []error
 	for _, file := range files {
+		tagsFile, err := mp3tag.TagsFile(file)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		artworkFile, err := mp3tag.ArtworkFile(file, tagsFile)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		if artworkFile == "" {
+			log.Printf("no art   %s", file)
+			continue
+		}
+		artwork, err := mp3tag.ReadArtwork(artworkFile)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
 		changed, err := embed(file, artwork, dryRun)
 		switch {
 		case err != nil:

@@ -315,3 +315,11 @@ Suggested an `ffmpeg` loop that stream-copies the audio and attaches `artwork.jp
 - `export-tags` now takes the preset folder as an optional argument, like `embed-tags`. `-o` still works; more than one argument prints usage.
 - File names map `/` to a space, so "Reprise/Instrumental" matches the mp3 name "Reprise Instrumental".
 - Removed the 47 YAML files from the repo root and re-ran both commands: 47 YAML files in preset 3 from `playlist-name.txt` ("Snow White"), 47 mp3 files updated, a second run all `ok`.
+
+## Turn 19 - Export artwork for each track
+
+> Make sure the ./cmd/export-tags exports a jpg for each mp3 file not one for the entire playlist. Playlist 7 has different artwork for each file for example.
+
+- `export-tags` now also writes `NN-<title>.jpg` for each track from the track's first artwork in Music.app. JavaScript for Automation cannot write raw artwork data, so an AppleScript writes each track's raw data to a temp directory, looking the playlist up by the persistent ID the JXA script returns. PNG or progressive JPEG artwork is re-encoded as baseline JPEG. `-artwork=false` skips it, and `-f` now also overwrites JPEG files.
+- `embed-tags` and `embed-artwork` choose artwork per mp3: the JPEG named like the mp3, then the JPEG named like its YAML file, then the folder's `artwork.jpg`. `embed-artwork` no longer requires `artwork.jpg`; files without any artwork are reported as `no art`.
+- Ran on preset 7 ("Humbling River"): 13 distinct 600x600 JPEGs exported, 12 mp3 files updated and 1 already matching, and the embedded pictures match each track's JPEG.

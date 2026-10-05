@@ -2,6 +2,9 @@ package mp3tag
 
 import (
 	"bytes"
+	"image"
+	"image/jpeg"
+	"image/png"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -135,5 +138,62 @@ func TestIsProgressiveJPEG(t *testing.T) {
 	}
 	if _, err := isProgressiveJPEG([]byte("PNG")); err == nil {
 		t.Error("non-JPEG: want error")
+	}
+}
+
+func TestArtworkFile(t *testing.T) {
+	dir := t.TempDir()
+	touch := func(name string) {
+		if err := os.WriteFile(filepath.Join(dir, name), nil, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	mp3 := filepath.Join(dir, "03-Come As You Are.mp3")
+	tagsFile := filepath.Join(dir, "03-Come As You Are (Remastered).yaml")
+	check := func(want string) {
+		t.Helper()
+		got, err := ArtworkFile(mp3, tagsFile)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if want != "" {
+			want = filepath.Join(dir, want)
+		}
+		if got != want {
+			t.Errorf("ArtworkFile() = %q, want %q", got, want)
+		}
+	}
+	check("")
+	touch(ArtworkFilename)
+	check(ArtworkFilename)
+	touch("03-Come As You Are (Remastered).jpg")
+	check("03-Come As You Are (Remastered).jpg")
+	touch("03-Come As You Are.jpg")
+	check("03-Come As You Are.jpg")
+}
+
+func TestBaselineJPEG(t *testing.T) {
+	img := image.NewRGBA(image.Rect(0, 0, 4, 4))
+	var pngData, jpegData bytes.Buffer
+	if err := png.Encode(&pngData, img); err != nil {
+		t.Fatal(err)
+	}
+	if err := jpeg.Encode(&jpegData, img, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := BaselineJPEG(jpegData.Bytes())
+	if err != nil || !bytes.Equal(got, jpegData.Bytes()) {
+		t.Errorf("baseline JPEG: want unchanged, err %v", err)
+	}
+	got, err = BaselineJPEG(pngData.Bytes())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p, err := isProgressiveJPEG(got); err != nil || p {
+		t.Errorf("PNG: want baseline JPEG, got progressive %v, err %v", p, err)
+	}
+	if _, err := BaselineJPEG([]byte("not an image")); err == nil {
+		t.Error("invalid image: want error")
 	}
 }

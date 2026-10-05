@@ -2,9 +2,10 @@
 // ID3v2.3 tag of each mp3 file.
 //
 // The write is authoritative: every existing frame and any ID3v1 tag is
-// removed, then the frames in the YAML file are written. The preset's
-// artwork.jpg is added as the front cover. Without an artwork.jpg, the
-// pictures already in the file are kept. mp3 files without a YAML tags file
+// removed, then the frames in the YAML file are written. The track's artwork
+// JPEG exported by export-tags, or else the preset's artwork.jpg, is added as
+// the front cover. Without either, the pictures already in the file are kept.
+// mp3 files without a YAML tags file
 // are left untouched, and files whose tags already match are not rewritten.
 //
 // Usage:
@@ -80,13 +81,6 @@ func process(path string, dryRun bool) error {
 		dir, files = filepath.Dir(path), []string{path}
 	}
 
-	var artwork []byte
-	if _, err := os.Stat(filepath.Join(dir, mp3tag.ArtworkFilename)); err == nil {
-		if artwork, err = mp3tag.ReadArtwork(filepath.Join(dir, mp3tag.ArtworkFilename)); err != nil {
-			return err
-		}
-	}
-
 	var errs []error
 	used := make(map[string]bool)
 	for _, file := range files {
@@ -100,6 +94,15 @@ func process(path string, dryRun bool) error {
 			continue
 		}
 		used[tagsFile] = true
+		var artwork []byte
+		artworkFile, err := mp3tag.ArtworkFile(file, tagsFile)
+		if err == nil && artworkFile != "" {
+			artwork, err = mp3tag.ReadArtwork(artworkFile)
+		}
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
 		changed, err := embed(file, tagsFile, artwork, dryRun)
 		switch {
 		case err != nil:

@@ -11,9 +11,9 @@ them:
 
 | Command | Reads | Writes |
 |---|---|---|
-| `export-tags` | Music.app playlist | A YAML tags file per track |
-| `embed-tags` | YAML tags files and `artwork.jpg` | The full ID3 tag, replacing what is there |
-| `embed-artwork` | `artwork.jpg` | The cover picture only, keeping the other tags |
+| `export-tags` | Music.app playlist | A YAML tags file and a JPEG artwork file per track |
+| `embed-tags` | YAML tags files and artwork | The full ID3 tag, replacing what is there |
+| `embed-artwork` | Artwork | The cover picture only, keeping the other tags |
 
 All three write ID3v2.3 tags with ISO-8859-1 or UTF-16 text, the most widely
 supported combination. ID3v2.4 and UTF-8 text are avoided.
@@ -23,9 +23,10 @@ supported combination. ID3v2.4 and UTF-8 text are avoided.
 1. Record the playlist and export the mp3 files into the preset folder, e.g.
    `music/presets/9`, as described in `tracks/readme.md`. Remove any
    apostrophes from the file names, since `go:embed` rejects them.
-2. Add the preset's `artwork.jpg`, a baseline (not progressive) JPEG.
+2. Optionally add the preset's `artwork.jpg`, a baseline (not progressive)
+   JPEG. The CardPuter shows it, and tracks without their own artwork use it.
 3. Put the name of the Music.app playlist in `playlist-name.txt` in the preset
-   folder, then export its tags:
+   folder, then export its tags and artwork:
 
    ```bash
    echo "Moana Live Action Soundtrack" > music/presets/9/playlist-name.txt
@@ -33,14 +34,15 @@ supported combination. ID3v2.4 and UTF-8 text are avoided.
    ```
 
 4. Review and edit the YAML files. Music.app metadata is sometimes wrong, for
-   example the year or the track count.
+   example the year or the track count. Replace a track's JPEG to change its
+   cover.
 5. Write the tags into the mp3 files:
 
    ```bash
    go run ./cmd/embed-tags music/presets/9
    ```
 
-6. Commit the YAML files. The mp3 files are git-ignored, so the YAML files are
+6. Commit the YAML and JPEG files. The mp3 files are git-ignored, so these are
    the record of their tags and `embed-tags` can rewrite them at any time.
 
 Repeat step 5 after editing a YAML file or the artwork. Each command can be
@@ -50,8 +52,8 @@ rewritten.
 ## export-tags
 
 `export-tags` runs JavaScript for Automation through `osascript`, like the
-program in the `tracks` folder, and writes one YAML file per track to the
-preset folder:
+program in the `tracks` folder, and writes one YAML file and one JPEG file per
+track to the preset folder:
 
 ```bash
 go run ./cmd/export-tags [-playlist NAME] [-f] [preset-dir]
@@ -64,7 +66,8 @@ directory.
 |---|---|---|
 | `-playlist` | | Name of the Music.app playlist, overrides `playlist-name.txt` |
 | `-o` | `.` | Directory to write the YAML files to, same as the argument |
-| `-f` | `false` | Overwrite existing YAML files, which are kept by default so hand edits are not lost |
+| `-f` | `false` | Overwrite existing YAML and JPEG files, which are kept by default so hand edits are not lost |
+| `-artwork` | `true` | Export the artwork of each track; `-artwork=false` writes only YAML files |
 
 The playlist is, in order of preference:
 
@@ -82,8 +85,19 @@ The playlist name is recorded in the comment at the top of each YAML file.
 Files are named like the mp3 files Audacity exports with "Numbering before
 Label": the position in the playlist, a dash, and the track name without the
 characters `go:embed` rejects. The fourth track, "How Far I'll Go", becomes
-`04-How Far Ill Go.yaml`, matching `04-How Far Ill Go.mp3`. Slashes become
-spaces, so "Reprise/Instrumental" becomes "Reprise Instrumental".
+`04-How Far Ill Go.yaml` and `04-How Far Ill Go.jpg`, matching
+`04-How Far Ill Go.mp3`. Slashes become spaces, so "Reprise/Instrumental"
+becomes "Reprise Instrumental".
+
+### Artwork
+
+Each track's artwork is exported separately, since tracks in a playlist often
+come from different albums. Preset 7, for example, has a different cover for
+every track. The artwork is the first artwork of the track in Music.app, read
+with AppleScript because JavaScript for Automation cannot write its raw data.
+Baseline JPEG artwork is written unchanged; PNG or progressive JPEG artwork is
+re-encoded as a baseline JPEG for Sonos. Tracks without artwork are reported
+as `no art` and get no JPEG file.
 
 ```yaml
 # Exported by export-tags from Music.app playlist "Moana Live Action Soundtrack", track 1 of 13.
@@ -154,11 +168,15 @@ YAML files that match no mp3 file are reported as warnings.
 The write is authoritative. Every ID3v2 frame is removed, including encoder
 and comment frames left by Audacity, and any ID3v1 tag at the end of the file
 is stripped. Only the frames from the YAML file are written. The artwork is
-then added on top:
+then added on top as the only picture, the front cover. It is, in order of
+preference:
 
-- If the folder has an `artwork.jpg`, it becomes the only picture, the front
-  cover.
-- Otherwise, the pictures already in the file are kept.
+1. The JPEG with the same name as the mp3 file, e.g. `03-Come As You Are.jpg`.
+2. The JPEG with the same name as its YAML file, e.g.
+   `03-Come As You Are (Remastered).jpg`, as exported by `export-tags`.
+3. The folder's `artwork.jpg`.
+
+Without any of these, the pictures already in the file are kept.
 
 The audio is not re-encoded or changed. The new file is written next to the
 original and renamed over it, so an interrupted write leaves the original
@@ -170,9 +188,10 @@ intact.
 go run ./cmd/embed-artwork [-n] [-presets music/presets] [preset-dir | file.mp3]...
 ```
 
-`embed-artwork` only replaces the pictures with `artwork.jpg` and keeps every
-other frame. It is useful for presets without YAML files. With no paths, it
-processes every preset folder that has an `artwork.jpg`. ID3v2.4 tags are
+`embed-artwork` only replaces the pictures and keeps every other frame. It is
+useful for presets without YAML files. Each mp3 file gets its artwork in the
+same order of preference as `embed-tags`; files without any are reported as
+`no art`. With no paths, it processes every folder in `-presets`. ID3v2.4 tags are
 converted to ID3v2.3 along the way. UTF-8 text is re-encoded, and `TDRC` and
 `TDOR` become `TYER` and `TORY`.
 

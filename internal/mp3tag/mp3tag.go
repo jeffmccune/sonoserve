@@ -8,6 +8,9 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"image"
+	"image/jpeg"
+	_ "image/png" // Music.app artwork may be PNG
 	"io"
 	"os"
 	"path/filepath"
@@ -26,6 +29,9 @@ const ArtworkFilename = "artwork.jpg"
 
 // TagsExt is the file extension of the YAML tags file of an mp3 file.
 const TagsExt = ".yaml"
+
+// ArtworkExt is the file extension of the artwork file of an mp3 file.
+const ArtworkExt = ".jpg"
 
 // pictureDescription is the description of the embedded front cover.
 const pictureDescription = "Cover"
@@ -175,6 +181,42 @@ func ReadArtwork(path string) ([]byte, error) {
 		return nil, fmt.Errorf("%s: progressive JPEG is not supported by Sonos, re-save it as baseline", path)
 	}
 	return data, nil
+}
+
+// BaselineJPEG returns data if it is a baseline JPEG image, otherwise data
+// decoded and re-encoded as a baseline JPEG, e.g. a PNG or progressive JPEG.
+func BaselineJPEG(data []byte) ([]byte, error) {
+	if progressive, err := isProgressiveJPEG(data); err == nil && !progressive {
+		return data, nil
+	}
+	img, _, err := image.Decode(bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
+	var buf bytes.Buffer
+	if err := jpeg.Encode(&buf, img, &jpeg.Options{Quality: 90}); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+// ArtworkFile returns the artwork of an mp3 file, or "" if it has none. In
+// order of preference it is the JPEG with the same name as the mp3 file, the
+// JPEG with the same name as its tags file, or the folder's artwork.jpg.
+func ArtworkFile(mp3, tagsFile string) (string, error) {
+	candidates := []string{strings.TrimSuffix(mp3, filepath.Ext(mp3)) + ArtworkExt}
+	if tagsFile != "" {
+		candidates = append(candidates, strings.TrimSuffix(tagsFile, TagsExt)+ArtworkExt)
+	}
+	candidates = append(candidates, filepath.Join(filepath.Dir(mp3), ArtworkFilename))
+	for _, c := range candidates {
+		if _, err := os.Stat(c); err == nil {
+			return c, nil
+		} else if !errors.Is(err, os.ErrNotExist) {
+			return "", err
+		}
+	}
+	return "", nil
 }
 
 // isProgressiveJPEG scans the JPEG markers in data for the start of frame

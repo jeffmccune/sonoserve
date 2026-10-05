@@ -43,7 +43,8 @@ sends as `artwork_timeout_seconds` in the preset response.
 
 Sonos reads the title, artist, album, and artwork from each mp3's ID3 tags.
 Export the tags of a Music.app playlist to YAML files in the preset folder,
-edit them if needed, then write them and `artwork.jpg` into the mp3 files.
+and each track's artwork to JPEG files, edit them if needed, then write them
+into the mp3 files.
 `export-tags` reads the playlist name from `playlist-name.txt` in the preset
 folder if it exists:
 
