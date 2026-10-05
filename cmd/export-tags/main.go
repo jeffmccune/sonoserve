@@ -4,12 +4,13 @@
 //
 // Tags files are named like the mp3 files Audacity exports with "Numbering
 // before Label", e.g. "04-How Far Ill Go.yaml" for the fourth track. The
-// playlist is, in order of preference, the one named by -playlist, the
-// playlist currently playing, or the playlist shown in the front Music window.
+// playlist is, in order of preference, the one named by -playlist, the one
+// named in playlist-name.txt in the -o folder, the playlist currently
+// playing, or the playlist shown in the front Music window.
 //
 // Usage:
 //
-//	go run ./cmd/export-tags -o music/presets/9
+//	go run ./cmd/export-tags -o music/presets/9   # uses music/presets/9/playlist-name.txt if it exists
 //	go run ./cmd/export-tags -playlist "Moana Live Action Soundtrack" -o music/presets/9
 package main
 
@@ -27,6 +28,9 @@ import (
 
 	"github.com/jeffmccune/sonoserve/internal/mp3tag"
 )
+
+// playlistNameFile names the Music.app playlist of the preset folder it is in.
+const playlistNameFile = "playlist-name.txt"
 
 // script is JavaScript for Automation that prints the playlist tracks as JSON.
 // Properties are read for all tracks at once, which is much faster than one
@@ -140,7 +144,7 @@ func (t Track) Tags() *mp3tag.Tags {
 }
 
 func main() {
-	playlistName := flag.String("playlist", "", "name of the Music.app playlist (default: the current playlist, or the one in the front window)")
+	playlistName := flag.String("playlist", "", "name of the Music.app playlist (default: the one in "+playlistNameFile+" in the -o folder, the current playlist, or the one in the front window)")
 	outDir := flag.String("o", ".", "directory to write the YAML tags files to, usually the preset folder")
 	force := flag.Bool("f", false, "overwrite existing tags files")
 	flag.Usage = func() {
@@ -151,7 +155,15 @@ func main() {
 	flag.Parse()
 	log.SetFlags(0)
 
-	playlist, err := getPlaylist(*playlistName)
+	name := *playlistName
+	if name == "" {
+		var err error
+		if name, err = readPlaylistName(filepath.Join(*outDir, playlistNameFile)); err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	playlist, err := getPlaylist(name)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -185,6 +197,24 @@ func main() {
 		}
 		log.Printf("wrote    %s", path)
 	}
+}
+
+// readPlaylistName returns the playlist name in path, or "" if path does not
+// exist.
+func readPlaylistName(path string) (string, error) {
+	data, err := os.ReadFile(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	name := strings.TrimSpace(string(data))
+	if name == "" {
+		return "", fmt.Errorf("%s is empty", path)
+	}
+	log.Printf("Using playlist %q from %s", name, path)
+	return name, nil
 }
 
 // getPlaylist returns the tracks of the named playlist, or the current one

@@ -24,10 +24,12 @@ supported combination. ID3v2.4 and UTF-8 text are avoided.
    `music/presets/9`, as described in `tracks/readme.md`. Remove any
    apostrophes from the file names, since `go:embed` rejects them.
 2. Add the preset's `artwork.jpg`, a baseline (not progressive) JPEG.
-3. Export the tags of the same Music.app playlist:
+3. Put the name of the Music.app playlist in `playlist-name.txt` in the preset
+   folder, then export its tags:
 
    ```bash
-   go run ./cmd/export-tags -playlist "Moana Live Action Soundtrack" -o music/presets/9
+   echo "Moana Live Action Soundtrack" > music/presets/9/playlist-name.txt
+   go run ./cmd/export-tags -o music/presets/9
    ```
 
 4. Review and edit the YAML files. Music.app metadata is sometimes wrong, for
@@ -53,13 +55,22 @@ directory (default `.`).
 
 | Flag | Default | Description |
 |---|---|---|
-| `-playlist` | | Name of the Music.app playlist |
+| `-playlist` | | Name of the Music.app playlist, overrides `playlist-name.txt` |
 | `-o` | `.` | Directory to write the YAML files to, usually the preset folder |
 | `-f` | `false` | Overwrite existing YAML files, which are kept by default so hand edits are not lost |
 
-Without `-playlist`, it uses the playlist that is currently playing, then the
-playlist shown in the front Music window. Naming the playlist is the most
-reliable, because the other two depend on what Music.app is doing.
+The playlist is, in order of preference:
+
+1. The `-playlist` flag.
+2. The contents of `playlist-name.txt` in the `-o` folder, if the file exists.
+   Leading and trailing whitespace is ignored, and an empty file is an error.
+3. The playlist that is currently playing.
+4. The playlist shown in the front Music window.
+
+Naming the playlist with the flag or `playlist-name.txt` is the most reliable,
+because the last two depend on what Music.app is doing. Commit
+`playlist-name.txt` with the preset so later exports read the same playlist.
+The playlist name is recorded in the comment at the top of each YAML file.
 
 Files are named like the mp3 files Audacity exports with "Numbering before
 Label": the position in the playlist, a dash, and the track name without the

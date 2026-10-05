@@ -298,3 +298,10 @@ Suggested an `ffmpeg` loop that stream-copies the audio and attaches `artwork.jp
 - Shared code moved to `internal/mp3tag` (YAML schema, frame mapping, artwork checks, ID3v1 removal, file matching) with unit tests. `embed-artwork` now uses it.
 - Exported the "Moana Live Action Soundtrack" playlist to `music/presets/9/*.yaml` and embedded the tags: 13 files updated, audio unchanged, a second run reported all `ok`.
 - Documented in `website/docs/mp3-tags.md` and the README.
+
+## Turn 17 - Read the playlist name from playlist-name.txt
+
+> Update the export-tags command to read playlist-name.txt from the root of the playlist folder if it exists, and use that playlist name in the file content body if the file exists. Commit and push
+
+- `export-tags` reads `playlist-name.txt` from the `-o` folder when `-playlist` is not given, and exports that playlist. Its name is recorded in the header comment of each YAML file. An empty file is an error. Precedence: `-playlist`, `playlist-name.txt`, the playing playlist, the front Music window.
+- Added `music/presets/9/playlist-name.txt` ("Moana Live Action Soundtrack") and updated `website/docs/mp3-tags.md` and the README.
