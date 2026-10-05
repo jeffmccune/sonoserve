@@ -338,3 +338,9 @@ Suggested an `ffmpeg` loop that stream-copies the audio and attaches `artwork.jp
 - Every track response replaces the preset, title, album, and artwork shown, including next and previous. A failed artwork download shows no artwork rather than stale artwork. Title is shown in yellow and album in cyan. Compiled with arduino-cli (96% of flash).
 
 **Docs:** Track Responses in `website/docs/controller.md`, a Server section in `website/docs/mp3-tags.md`, and the README.
+
+## Turn 21 - Commit and push
+
+> Commit and push
+
+Committed the `deploy.sh` server change, `music/presets/9/playlist-name.txt`, and the YAML tags and `playlist-name.txt` files of presets 3 to 8, then pushed. The JPEG artwork files were left uncommitted because the repository is public and they are album cover images; they are still embedded when the server is built locally.
