@@ -50,20 +50,6 @@ type Speaker struct {
 	Room    string `json:"room"`
 }
 
-// PresetPlayResponse is the response body of POST /sonos/preset/{preset}.
-type PresetPlayResponse struct {
-	Preset   string `json:"preset"`
-	Speaker  string `json:"speaker"`
-	Filename string `json:"filename"`
-	// ArtworkURL is the URL path of the preset artwork, empty if none.
-	ArtworkURL string `json:"artwork_url,omitempty"`
-	// ArtworkETag is the checksum of the artwork served at ArtworkURL.
-	ArtworkETag string `json:"artwork_etag,omitempty"`
-	// ArtworkTimeoutSeconds is how long the CardPuter shows the artwork
-	// before turning off the screen, zero to keep it on.
-	ArtworkTimeoutSeconds *int `json:"artwork_timeout_seconds,omitempty"`
-}
-
 type ListItem struct {
 	Index    int    `json:"index"`
 	Title    string `json:"title"`
@@ -420,26 +406,7 @@ func playPreset(w http.ResponseWriter, r *http.Request, presetNum string, speake
 	filename := playlistItems[0].Filename
 	log.Printf("Successfully started playing preset %s on %s: %s", presetNum, speaker.Name, filename)
 	
-	response := PresetPlayResponse{
-		Preset:   presetNum,
-		Speaker:  speaker.Name,
-		Filename: filename,
-	}
-	if art, err := getArtwork(presetNum); err != nil {
-		log.Printf("Warning: Failed to load artwork: %v", err)
-	} else if art != nil {
-		response.ArtworkURL = artworkPath(presetNum)
-		response.ArtworkETag = art.ETag
-		timeout := int(artworkTimeout / time.Second)
-		response.ArtworkTimeoutSeconds = &timeout
-	}
-	
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	// Leave characters such as & unescaped for the CardPuter's simple parser
-	enc := json.NewEncoder(w)
-	enc.SetEscapeHTML(false)
-	enc.Encode(response)
+	writeTrackResponse(w, newTrackResponse(speaker.Name, presetNum, filename))
 }
 
 // validPresetName reports whether name is a lower case alphanumeric preset name.
@@ -487,7 +454,7 @@ func presetHandler(w http.ResponseWriter, r *http.Request) {
 		if art, err := getArtwork(presetNum); err != nil {
 			log.Printf("Warning: Failed to load artwork: %v", err)
 		} else if art != nil {
-			response["artwork_url"] = artworkPath(presetNum)
+			response["artwork_url"] = artworkPath(presetNum, artworkFilename)
 			response["artwork_etag"] = art.ETag
 		}
 		
@@ -723,8 +690,14 @@ func playHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	
 	log.Printf("Successfully started playback on %s", speaker.Name)
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(fmt.Sprintf("Playing playlist on %s\n", speaker.Name)))
+	track, err := currentTrackResponse(s, speaker.Name)
+	if err != nil {
+		log.Printf("Warning: Failed to get current track: %v", err)
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(fmt.Sprintf("Playing playlist on %s\n", speaker.Name)))
+		return
+	}
+	writeTrackResponse(w, track)
 }
 
 func queueHandler(w http.ResponseWriter, r *http.Request) {
@@ -1214,8 +1187,14 @@ func playPauseHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		log.Printf("Successfully started playback on %s", speaker.Name)
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(fmt.Sprintf("Playing on %s\n", speaker.Name)))
+		track, err := currentTrackResponse(s, speaker.Name)
+		if err != nil {
+			log.Printf("Warning: Failed to get current track: %v", err)
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(fmt.Sprintf("Playing on %s\n", speaker.Name)))
+			return
+		}
+		writeTrackResponse(w, track)
 	}
 }
 
@@ -1276,17 +1255,15 @@ func nextTrackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	filename, err := currentTrackFilename(s)
+	track, err := currentTrackResponse(s, speaker.Name)
 	if err != nil {
 		log.Printf("Failed to get current track: %v", err)
 		http.Error(w, "Failed to get current track", http.StatusInternalServerError)
 		return
 	}
 	
-	log.Printf("Successfully skipped to next track on %s: %s", speaker.Name, filename)
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(filename + "\n"))
+	log.Printf("Successfully skipped to next track on %s: %s", speaker.Name, track.Filename)
+	writeTrackResponse(w, track)
 }
 
 func previousTrackHandler(w http.ResponseWriter, r *http.Request) {
@@ -1346,17 +1323,15 @@ func previousTrackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	filename, err := currentTrackFilename(s)
+	track, err := currentTrackResponse(s, speaker.Name)
 	if err != nil {
 		log.Printf("Failed to get current track: %v", err)
 		http.Error(w, "Failed to get current track", http.StatusInternalServerError)
 		return
 	}
 	
-	log.Printf("Successfully skipped to previous track on %s: %s", speaker.Name, filename)
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(filename + "\n"))
+	log.Printf("Successfully skipped to previous track on %s: %s", speaker.Name, track.Filename)
+	writeTrackResponse(w, track)
 }
 
 func volumeUpHandler(w http.ResponseWriter, r *http.Request) {

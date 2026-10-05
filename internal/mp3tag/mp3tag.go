@@ -12,7 +12,9 @@ import (
 	"image/jpeg"
 	_ "image/png" // Music.app artwork may be PNG
 	"io"
+	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -200,25 +202,6 @@ func BaselineJPEG(data []byte) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// ArtworkFile returns the artwork of an mp3 file, or "" if it has none. In
-// order of preference it is the JPEG with the same name as the mp3 file, the
-// JPEG with the same name as its tags file, or the folder's artwork.jpg.
-func ArtworkFile(mp3, tagsFile string) (string, error) {
-	candidates := []string{strings.TrimSuffix(mp3, filepath.Ext(mp3)) + ArtworkExt}
-	if tagsFile != "" {
-		candidates = append(candidates, strings.TrimSuffix(tagsFile, TagsExt)+ArtworkExt)
-	}
-	candidates = append(candidates, filepath.Join(filepath.Dir(mp3), ArtworkFilename))
-	for _, c := range candidates {
-		if _, err := os.Stat(c); err == nil {
-			return c, nil
-		} else if !errors.Is(err, os.ErrNotExist) {
-			return "", err
-		}
-	}
-	return "", nil
-}
-
 // isProgressiveJPEG scans the JPEG markers in data for the start of frame
 // marker and reports whether it is progressive (SOF2).
 func isProgressiveJPEG(data []byte) (bool, error) {
@@ -327,29 +310,31 @@ func FileName(name string) string {
 // trackPrefix matches the track number file names start with, e.g. "04-".
 var trackPrefix = regexp.MustCompile(`^(\d+)[- ]`)
 
-// TagsFile returns the YAML tags file of an mp3 file, or "" if it has none.
-// The tags file has the same name as the mp3 file with the .yaml extension.
-// If there is no such file, a single tags file in the same folder with the
-// same track number prefix is used, so titles may differ in punctuation.
-func TagsFile(mp3 string) (string, error) {
-	path := strings.TrimSuffix(mp3, filepath.Ext(mp3)) + TagsExt
-	if _, err := os.Stat(path); err == nil {
-		return path, nil
-	} else if !errors.Is(err, os.ErrNotExist) {
+// TagsFile returns the name in fsys of the YAML tags file of the mp3 file
+// named mp3, or "" if it has none. The tags file has the same name as the mp3
+// file with the .yaml extension. If there is no such file, a single tags file
+// in the same folder with the same track number prefix is used, so titles may
+// differ in punctuation.
+func TagsFile(fsys fs.FS, mp3 string) (string, error) {
+	name := strings.TrimSuffix(mp3, path.Ext(mp3)) + TagsExt
+	if ok, err := exists(fsys, name); err != nil || ok {
+		if ok {
+			return name, nil
+		}
 		return "", err
 	}
 
-	m := trackPrefix.FindStringSubmatch(filepath.Base(mp3))
+	m := trackPrefix.FindStringSubmatch(path.Base(mp3))
 	if m == nil {
 		return "", nil
 	}
-	candidates, err := filepath.Glob(filepath.Join(filepath.Dir(mp3), m[1]+"*"+TagsExt))
+	candidates, err := fs.Glob(fsys, path.Join(path.Dir(mp3), m[1]+"*"+TagsExt))
 	if err != nil {
 		return "", err
 	}
 	var matches []string
 	for _, c := range candidates {
-		if cm := trackPrefix.FindStringSubmatch(filepath.Base(c)); cm != nil && cm[1] == m[1] {
+		if cm := trackPrefix.FindStringSubmatch(path.Base(c)); cm != nil && cm[1] == m[1] {
 			matches = append(matches, c)
 		}
 	}
@@ -361,4 +346,57 @@ func TagsFile(mp3 string) (string, error) {
 	default:
 		return "", fmt.Errorf("%s: ambiguous tags files %s", mp3, strings.Join(matches, ", "))
 	}
+}
+
+// ArtworkFile returns the name in fsys of the artwork of the mp3 file named
+// mp3 with the tags file named tagsFile, or "" if it has none. In order of
+// preference it is the JPEG with the same name as the mp3 file, the JPEG with
+// the same name as its tags file, or the folder's artwork.jpg.
+func ArtworkFile(fsys fs.FS, mp3, tagsFile string) (string, error) {
+	candidates := []string{strings.TrimSuffix(mp3, path.Ext(mp3)) + ArtworkExt}
+	if tagsFile != "" {
+		candidates = append(candidates, strings.TrimSuffix(tagsFile, TagsExt)+ArtworkExt)
+	}
+	candidates = append(candidates, path.Join(path.Dir(mp3), ArtworkFilename))
+	for _, c := range candidates {
+		if ok, err := exists(fsys, c); err != nil || ok {
+			if ok {
+				return c, nil
+			}
+			return "", err
+		}
+	}
+	return "", nil
+}
+
+// Find returns the tags file and artwork file of the mp3 file at the OS path
+// mp3, each "" if there is none. See TagsFile and ArtworkFile.
+func Find(mp3 string) (tagsFile, artworkFile string, err error) {
+	dir := filepath.Dir(mp3)
+	fsys := os.DirFS(dir)
+	name := filepath.Base(mp3)
+	tagsName, err := TagsFile(fsys, name)
+	if err != nil {
+		return "", "", fmt.Errorf("%s: %w", mp3, err)
+	}
+	artworkName, err := ArtworkFile(fsys, name, tagsName)
+	if err != nil {
+		return "", "", err
+	}
+	if tagsName != "" {
+		tagsFile = filepath.Join(dir, tagsName)
+	}
+	if artworkName != "" {
+		artworkFile = filepath.Join(dir, artworkName)
+	}
+	return tagsFile, artworkFile, nil
+}
+
+// exists reports whether name exists in fsys.
+func exists(fsys fs.FS, name string) (bool, error) {
+	_, err := fs.Stat(fsys, name)
+	if errors.Is(err, fs.ErrNotExist) {
+		return false, nil
+	}
+	return err == nil, err
 }

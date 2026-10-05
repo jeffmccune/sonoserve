@@ -49,11 +49,11 @@ func TestScaleJPEG(t *testing.T) {
 
 func TestArtworkHandler(t *testing.T) {
 	artworkMu.Lock()
-	artworkCache["zz"] = &Artwork{Data: []byte("jpeg"), ETag: "abc123"}
+	artworkCache["music/presets/zz/artwork.jpg"] = &Artwork{Data: []byte("jpeg"), ETag: "abc123"}
 	artworkMu.Unlock()
 	defer func() {
 		artworkMu.Lock()
-		delete(artworkCache, "zz")
+		delete(artworkCache, "music/presets/zz/artwork.jpg")
 		artworkMu.Unlock()
 	}()
 

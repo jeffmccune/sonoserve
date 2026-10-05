@@ -84,7 +84,7 @@ func process(path string, dryRun bool) error {
 	var errs []error
 	used := make(map[string]bool)
 	for _, file := range files {
-		tagsFile, err := mp3tag.TagsFile(file)
+		tagsFile, artworkFile, err := mp3tag.Find(file)
 		if err != nil {
 			errs = append(errs, err)
 			continue
@@ -95,13 +95,11 @@ func process(path string, dryRun bool) error {
 		}
 		used[tagsFile] = true
 		var artwork []byte
-		artworkFile, err := mp3tag.ArtworkFile(file, tagsFile)
-		if err == nil && artworkFile != "" {
-			artwork, err = mp3tag.ReadArtwork(artworkFile)
-		}
-		if err != nil {
-			errs = append(errs, err)
-			continue
+		if artworkFile != "" {
+			if artwork, err = mp3tag.ReadArtwork(artworkFile); err != nil {
+				errs = append(errs, err)
+				continue
+			}
 		}
 		changed, err := embed(file, tagsFile, artwork, dryRun)
 		switch {

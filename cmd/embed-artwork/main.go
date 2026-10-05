@@ -86,12 +86,7 @@ func process(path string, dryRun bool) error {
 
 	var errs []error
 	for _, file := range files {
-		tagsFile, err := mp3tag.TagsFile(file)
-		if err != nil {
-			errs = append(errs, err)
-			continue
-		}
-		artworkFile, err := mp3tag.ArtworkFile(file, tagsFile)
+		_, artworkFile, err := mp3tag.Find(file)
 		if err != nil {
 			errs = append(errs, err)
 			continue

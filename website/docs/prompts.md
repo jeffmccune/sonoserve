@@ -323,3 +323,18 @@ Suggested an `ffmpeg` loop that stream-copies the audio and attaches `artwork.jp
 - `export-tags` now also writes `NN-<title>.jpg` for each track from the track's first artwork in Music.app. JavaScript for Automation cannot write raw artwork data, so an AppleScript writes each track's raw data to a temp directory, looking the playlist up by the persistent ID the JXA script returns. PNG or progressive JPEG artwork is re-encoded as baseline JPEG. `-artwork=false` skips it, and `-f` now also overwrites JPEG files.
 - `embed-tags` and `embed-artwork` choose artwork per mp3: the JPEG named like the mp3, then the JPEG named like its YAML file, then the folder's `artwork.jpg`. `embed-artwork` no longer requires `artwork.jpg`; files without any artwork are reported as `no art`.
 - Ran on preset 7 ("Humbling River"): 13 distinct 600x600 JPEGs exported, 12 mp3 files updated and 1 already matching, and the embedded pictures match each track's JPEG.
+
+## Turn 20 - Track title, album, and artwork in responses
+
+> Make sure the jpg and yaml files are embedded into the go executable. Make sure the response body always returns the albumn and track name from the ID3 tag if present when playing something. Make sure the cardputure always defers to the response body. Make sure the server returns the albumn art URL of the track jpg file if present, otherwise fall back to artwork.jpg.
+
+**Server:**
+- `//go:embed all:music` already embeds the YAML and JPEG files. New `TestMusicEmbedded` checks every file under `music/` is in the executable.
+- New `track.go`: `TrackResponse` replaces `PresetPlayResponse` and is returned by preset, next, previous, play, and play-pause when it resumes. It adds `title`, `album`, and `artist` from the mp3's ID3 tag (cached; title falls back to the file name) and the track's artwork URL.
+- Artwork: `/sonos/artwork/{preset}/{name}.jpg` serves a track's JPEG scaled for the CardPuter. The track response uses the track's own JPEG (same name as the mp3 or its YAML file), falling back to `/sonos/artwork/{preset}` for `artwork.jpg`.
+- `mp3tag.TagsFile` and `ArtworkFile` now work on an `fs.FS` so the server uses the same lookup on the embedded files; `mp3tag.Find` wraps them for OS paths in the commands.
+
+**CardPuter:**
+- Every track response replaces the preset, title, album, and artwork shown, including next and previous. A failed artwork download shows no artwork rather than stale artwork. Title is shown in yellow and album in cyan. Compiled with arduino-cli (96% of flash).
+
+**Docs:** Track Responses in `website/docs/controller.md`, a Server section in `website/docs/mp3-tags.md`, and the README.

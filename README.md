@@ -39,6 +39,12 @@ shows the artwork until the next preset, turning off the screen after
 `-artwork-timeout` (default `30s`, `0` keeps the screen on), which the server
 sends as `artwork_timeout_seconds` in the preset response.
 
+Tracks can also have their own artwork, e.g. `music/presets/7/01-The Humbling
+River.jpg`, exported by `export-tags` (see below). The preset, next, previous,
+and play responses describe the track now playing: its title, album, and
+artist from the mp3's ID3 tag, and the URL of its own artwork, falling back to
+`artwork.jpg`. The CardPuter always shows what the response describes.
+
 ## MP3 tags
 
 Sonos reads the title, artist, album, and artwork from each mp3's ID3 tags.

@@ -197,6 +197,18 @@ converted to ID3v2.3 along the way. UTF-8 text is re-encoded, and `TDRC` and
 
 `embed-tags` already adds the artwork, so there is no need to run both.
 
+## Server
+
+Everything in the `music` folder is embedded in the server executable with
+`//go:embed all:music`, including the YAML and JPEG files, and
+`TestMusicEmbedded` checks it. Build after exporting and embedding tags so the
+executable has them.
+
+When something plays, the server reads the title, album, and artist from the
+ID3 tag of the embedded mp3 file and returns them with the URL of the track's
+artwork JPEG, falling back to the preset's `artwork.jpg`. See Track Responses
+in the [controller](controller.md) page.
+
 ## Implementation
 
 The shared code is in `internal/mp3tag`: the YAML schema (`Tags`), the

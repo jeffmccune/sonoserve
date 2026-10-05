@@ -16,13 +16,15 @@ String storedPassword = "";
 // Overridden based on SSID in setup()
 String serverBase = "http://tools:8080/sonos/";
 
-void sendControlRequest(String endpoint, String message, bool showFilename = false);
-
-// Artwork for the last preset, shown on the idle screen until the next preset.
-// Empty when the last preset has no artwork.
+// The track now playing, as described by the server's response body. Every
+// field comes from the most recent track response, never from local state.
+// artworkFile is the cached artwork, shown on the idle screen, empty when the
+// track has no artwork.
 String artworkFile = "";
 String currentPreset = "";
 String currentFilename = "";
+String currentTitle = "";
+String currentAlbum = "";
 const int ARTWORK_SIZE = 135; // Matches the server -artwork-size and screen height
 
 // Screen timeout variables
@@ -608,11 +610,11 @@ void loop() {
           break;
         } else if (i == ',') {  // Left arrow key
           // Previous
-          sendControlRequest("previous", "Previous track...", true);
+          sendControlRequest("previous", "Previous track...");
           break;
         } else if (i == '/') {  // Right arrow key
           // Next
-          sendControlRequest("next", "Next track...", true);
+          sendControlRequest("next", "Next track...");
           break;
         } else if (i == ';') {  // Up arrow key
           // Volume up
@@ -649,28 +651,9 @@ void sendPresetRequest(String preset) {
   M5Cardputer.Display.setCursor(0, 0);
   
   if (httpCode == 200) {
-    currentPreset = preset;
-    currentFilename = jsonString(response, "filename");
-    String artworkURL = jsonString(response, "artwork_url");
-    String artworkETag = jsonString(response, "artwork_etag");
-    long timeoutSeconds = jsonInt(response, "artwork_timeout_seconds", SCREEN_TIMEOUT / 1000);
-    artworkTimeout = timeoutSeconds < 0 ? SCREEN_TIMEOUT : (unsigned long)timeoutSeconds * 1000;
-    artworkFile = "";
-    if (artworkURL.length() > 0) {
-      M5Cardputer.Display.println("Loading artwork...");
-      artworkFile = loadArtwork(preset, artworkURL, artworkETag);
+    if (showTrackResponse(response)) {
+      return; // Artwork stays on screen until the next track or the timeout
     }
-    if (artworkFile.length() > 0) {
-      // Artwork stays on screen until the next preset or the artwork timeout
-      drawArtworkScreen();
-      return;
-    }
-    // No artwork - display the preset in white and the file name in yellow
-    M5Cardputer.Display.clear();
-    M5Cardputer.Display.setCursor(0, 0);
-    M5Cardputer.Display.setTextColor(WHITE, BLACK);
-    M5Cardputer.Display.println("Preset " + preset);
-    displayFilename(currentFilename);
   } else {
     // Error - display in red
     M5Cardputer.Display.setTextColor(RED, BLACK);
@@ -686,6 +669,59 @@ void sendPresetRequest(String preset) {
   // Wait a bit then show ready again
   delay(3000);
   showIdle();
+}
+
+// isTrackResponse reports whether a response body describes the track now
+// playing, as returned by preset, next, previous, play, and play-pause.
+bool isTrackResponse(const String& response) {
+  return response.indexOf("\"filename\":") >= 0;
+}
+
+// applyTrackResponse sets the current track from a track response body,
+// replacing all previous track state including the artwork, so the display
+// always matches what the server returned.
+void applyTrackResponse(const String& response) {
+  currentPreset = jsonString(response, "preset");
+  currentFilename = jsonString(response, "filename");
+  currentTitle = jsonString(response, "title");
+  currentAlbum = jsonString(response, "album");
+  if (currentTitle.length() == 0) currentTitle = currentFilename;
+  String artworkURL = jsonString(response, "artwork_url");
+  String artworkETag = jsonString(response, "artwork_etag");
+  long timeoutSeconds = jsonInt(response, "artwork_timeout_seconds", SCREEN_TIMEOUT / 1000);
+  artworkTimeout = timeoutSeconds < 0 ? SCREEN_TIMEOUT : (unsigned long)timeoutSeconds * 1000;
+  artworkFile = "";
+  if (artworkURL.length() > 0) {
+    M5Cardputer.Display.println("Loading artwork...");
+    String cacheKey = currentPreset.length() > 0 ? currentPreset : String("current");
+    artworkFile = loadArtwork(cacheKey, artworkURL, artworkETag);
+  }
+}
+
+// showTrackResponse applies a track response body and shows the track.
+// Returns true if artwork is shown, which stays on screen until the next
+// track or the artwork timeout.
+bool showTrackResponse(const String& response) {
+  applyTrackResponse(response);
+  if (artworkFile.length() > 0) {
+    drawArtworkScreen();
+    return true;
+  }
+  // No artwork - the preset in white, title in yellow, album in cyan
+  M5Cardputer.Display.clear();
+  M5Cardputer.Display.setCursor(0, 0);
+  M5Cardputer.Display.setTextColor(WHITE, BLACK);
+  if (currentPreset.length() > 0) {
+    M5Cardputer.Display.println("Preset " + currentPreset);
+  }
+  M5Cardputer.Display.setTextColor(YELLOW, BLACK);
+  M5Cardputer.Display.println(currentTitle);
+  if (currentAlbum.length() > 0) {
+    M5Cardputer.Display.setTextColor(CYAN, BLACK);
+    M5Cardputer.Display.println(currentAlbum);
+  }
+  M5Cardputer.Display.setTextColor(WHITE, BLACK);
+  return false;
 }
 
 // jsonString returns the string value of key in a flat JSON object, or an
@@ -747,12 +783,14 @@ String readTextFile(const String& path) {
   return text;
 }
 
-// loadArtwork returns the path of the cached artwork for preset, fetching it
-// from the server only when etag differs from the cached checksum. Returns an
-// empty string if no artwork is available.
-String loadArtwork(const String& preset, const String& url, const String& etag) {
-  String jpgPath = "/art/" + preset + ".jpg";
-  String etagPath = "/art/" + preset + ".etag";
+// loadArtwork returns the path of the artwork cached under key, usually the
+// preset, fetching it from the server only when etag differs from the cached
+// checksum. Tracks of a preset may have different artwork, so the cache holds
+// the artwork of the last track played from each preset. Returns an empty
+// string if no artwork is available.
+String loadArtwork(const String& key, const String& url, const String& etag) {
+  String jpgPath = "/art/" + key + ".jpg";
+  String etagPath = "/art/" + key + ".etag";
   
   if (etag.length() > 0 && LittleFS.exists(jpgPath) && readTextFile(etagPath) == etag) {
     return jpgPath; // Cache hit
@@ -763,8 +801,8 @@ String loadArtwork(const String& preset, const String& url, const String& etag) 
   int httpCode = http.GET();
   if (httpCode != 200) {
     http.end();
-    // Fall back to the previously cached artwork, if any
-    return LittleFS.exists(jpgPath) ? jpgPath : "";
+    // The cached artwork may belong to another track, so show none
+    return "";
   }
   
   // Remove the checksum first so an interrupted download is never a cache hit
@@ -789,8 +827,8 @@ String loadArtwork(const String& preset, const String& url, const String& etag) 
   return jpgPath;
 }
 
-// drawArtworkScreen draws the artwork on the left and the preset and file
-// name in the column to the right.
+// drawArtworkScreen draws the artwork on the left and the preset, title, and
+// album from the server's response in the column to the right.
 void drawArtworkScreen() {
   M5Cardputer.Display.clear();
   
@@ -812,23 +850,32 @@ void drawArtworkScreen() {
   M5Cardputer.Display.setCursor(x, 0);
   M5Cardputer.Display.print(currentPreset);
   
-  // Wrap the file name into the column with the small font
+  // Wrap the title and album into the column with the small font
   M5Cardputer.Display.setTextSize(1);
-  M5Cardputer.Display.setTextColor(YELLOW, BLACK);
-  int maxChars = (M5Cardputer.Display.width() - x) / M5Cardputer.Display.fontWidth();
-  int lineHeight = M5Cardputer.Display.fontHeight() + 2;
-  int y = 24;
-  for (int i = 0; i < (int)currentFilename.length() && y < M5Cardputer.Display.height(); i += maxChars) {
-    M5Cardputer.Display.setCursor(x, y);
-    M5Cardputer.Display.print(currentFilename.substring(i, i + maxChars));
-    y += lineHeight;
+  int y = drawWrapped(currentTitle, x, 24, YELLOW);
+  if (currentAlbum.length() > 0) {
+    drawWrapped(currentAlbum, x, y + 4, CYAN);
   }
   
   M5Cardputer.Display.setTextSize(2);
   M5Cardputer.Display.setTextColor(WHITE, BLACK);
 }
 
-// showIdle shows the artwork for the last preset, or the ready screen if it
+// drawWrapped draws text wrapped into the column from x to the right edge of
+// the screen, starting at y, and returns the y of the next line.
+int drawWrapped(const String& text, int x, int y, uint16_t color) {
+  M5Cardputer.Display.setTextColor(color, BLACK);
+  int maxChars = (M5Cardputer.Display.width() - x) / M5Cardputer.Display.fontWidth();
+  int lineHeight = M5Cardputer.Display.fontHeight() + 2;
+  for (int i = 0; i < (int)text.length() && y < M5Cardputer.Display.height(); i += maxChars) {
+    M5Cardputer.Display.setCursor(x, y);
+    M5Cardputer.Display.print(text.substring(i, i + maxChars));
+    y += lineHeight;
+  }
+  return y;
+}
+
+// showIdle shows the artwork of the current track, or the ready screen if it
 // has no artwork.
 void showIdle() {
   if (artworkFile.length() > 0) {
@@ -838,15 +885,9 @@ void showIdle() {
   }
 }
 
-// displayFilename shows the file name returned by the server in yellow.
-void displayFilename(String filename) {
-  filename.trim();
-  M5Cardputer.Display.setTextColor(YELLOW, BLACK);
-  M5Cardputer.Display.println(filename);
-  M5Cardputer.Display.setTextColor(WHITE, BLACK);
-}
-
-void sendControlRequest(String endpoint, String message, bool showFilename) {
+// sendControlRequest posts to endpoint. If the response describes the track
+// now playing, the display shows that track, otherwise the status.
+void sendControlRequest(String endpoint, String message) {
   // Reset activity timer
   lastActivityTime = millis();
   
@@ -860,18 +901,21 @@ void sendControlRequest(String endpoint, String message, bool showFilename) {
   http.begin(url);
   http.addHeader("Content-Type", "application/json");
   int httpCode = http.POST(body);
+  String response = http.getString();
+  http.end();
 
   M5Cardputer.Display.clear();
   M5Cardputer.Display.setCursor(0, 0);
   
   if (httpCode == 200) {
-    // Success - display in white
-    M5Cardputer.Display.setTextColor(WHITE, BLACK);
-    M5Cardputer.Display.println("200 OK - " + endpoint);
-    if (showFilename) {
-      currentFilename = http.getString();
-      currentFilename.trim();
-      displayFilename(currentFilename);
+    if (isTrackResponse(response)) {
+      if (showTrackResponse(response)) {
+        return; // Artwork stays on screen until the next track or the timeout
+      }
+    } else {
+      // Success - display in white
+      M5Cardputer.Display.setTextColor(WHITE, BLACK);
+      M5Cardputer.Display.println("200 OK - " + endpoint);
     }
   } else {
     // Error - display in red
@@ -879,16 +923,11 @@ void sendControlRequest(String endpoint, String message, bool showFilename) {
     M5Cardputer.Display.println("Error: " + String(httpCode));
     M5Cardputer.Display.println("\nResponse:");
     
-    // Get response
-    String response = http.getString();
-    
     // Display response
     if (response.length() > 0) {
       M5Cardputer.Display.println(response.substring(0, 200)); // Limit display
     }
   }
-  
-  http.end();
   
   // Wait a bit then show ready again
   delay(3000);

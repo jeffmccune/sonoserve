@@ -198,16 +198,6 @@ func trackFilename(uri string) string {
 	return path.Base(uri)
 }
 
-// currentTrackFilename returns the file name of the track currently loaded on
-// the speaker.
-func currentTrackFilename(s *sonos.Sonos) (string, error) {
-	info, err := s.GetPositionInfo(0)
-	if err != nil {
-		return "", err
-	}
-	return trackFilename(info.TrackURI), nil
-}
-
 // scheduledAction runs at a time of day, retrying until it succeeds or the
 // retry window passes.
 type scheduledAction struct {

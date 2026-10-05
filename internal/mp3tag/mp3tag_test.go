@@ -49,13 +49,10 @@ func TestTagsFile(t *testing.T) {
 		{mp3: "No Number.mp3", want: ""},
 	}
 	for _, tt := range tests {
-		got, err := TagsFile(filepath.Join(dir, tt.mp3))
+		got, err := TagsFile(os.DirFS(dir), tt.mp3)
 		if (err != nil) != tt.wantErr {
 			t.Errorf("TagsFile(%q) error = %v, wantErr %v", tt.mp3, err, tt.wantErr)
 			continue
-		}
-		if tt.want != "" {
-			tt.want = filepath.Join(dir, tt.want)
 		}
 		if got != tt.want {
 			t.Errorf("TagsFile(%q) = %q, want %q", tt.mp3, got, tt.want)
@@ -141,7 +138,7 @@ func TestIsProgressiveJPEG(t *testing.T) {
 	}
 }
 
-func TestArtworkFile(t *testing.T) {
+func TestFindArtwork(t *testing.T) {
 	dir := t.TempDir()
 	touch := func(name string) {
 		if err := os.WriteFile(filepath.Join(dir, name), nil, 0o644); err != nil {
@@ -149,10 +146,10 @@ func TestArtworkFile(t *testing.T) {
 		}
 	}
 	mp3 := filepath.Join(dir, "03-Come As You Are.mp3")
-	tagsFile := filepath.Join(dir, "03-Come As You Are (Remastered).yaml")
+	touch("03-Come As You Are (Remastered).yaml")
 	check := func(want string) {
 		t.Helper()
-		got, err := ArtworkFile(mp3, tagsFile)
+		_, got, err := Find(mp3)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -160,7 +157,7 @@ func TestArtworkFile(t *testing.T) {
 			want = filepath.Join(dir, want)
 		}
 		if got != want {
-			t.Errorf("ArtworkFile() = %q, want %q", got, want)
+			t.Errorf("Find() artwork = %q, want %q", got, want)
 		}
 	}
 	check("")
