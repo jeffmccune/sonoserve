@@ -736,12 +736,11 @@ Quick access to preset playlists:
 View the contents of any preset playlist before playing it:
 
 <div style={{marginTop: '20px'}}>
-  <label style={{marginRight: '10px'}}>Preset Number:</label>
+  <label style={{marginRight: '10px'}}>Preset (0-9, a-z):</label>
   <input 
     id="presetInput" 
-    type="number" 
-    min="0" 
-    max="9" 
+    type="text" 
+    maxLength="1" 
     defaultValue="5"
     style={{
       padding: '5px 10px',
@@ -754,7 +753,7 @@ View the contents of any preset playlist before playing it:
   />
   <button 
     onClick={() => {
-      const presetNum = document.getElementById('presetInput').value;
+      const presetNum = document.getElementById('presetInput').value.toLowerCase();
       const server = document.getElementById('serverInput').value || 'localhost:8080';
       const url = (window.location.host === server) 
         ? `/sonos/preset/${presetNum}` 
@@ -849,8 +848,32 @@ curl -s localhost:8080/api/sonos/speakers
 curl -X POST localhost:8080/api/sonos/discover
 ```
 
+### Track Responses
+
+Play Preset, Next Track, Previous Track, Play, and Play/Pause (when it
+resumes playback) respond with JSON describing the track now playing:
+
+```json
+{"preset":"7","speaker":"Kids Room","filename":"03-Come As You Are.mp3",
+ "title":"Come As You Are (Remastered)","album":"Nevermind (30th Anniversary Super Deluxe)",
+ "artist":"Nirvana","artwork_url":"/sonos/artwork/7/03-Come%20As%20You%20Are%20%28Remastered%29.jpg",
+ "artwork_etag":"0aa012...","artwork_timeout_seconds":30}
+```
+
+- `title`, `album`, and `artist` come from the ID3 tag of the mp3 file. `title`
+  falls back to the file name without `.mp3`. Empty `album` and `artist` are
+  omitted.
+- `artwork_url` is the track's own JPEG exported by `export-tags`, otherwise the
+  preset's `artwork.jpg`. It and `artwork_etag` and `artwork_timeout_seconds`
+  are omitted when there is neither.
+- `preset` is empty when the track is not from a preset.
+
+The CardPuter shows exactly what the response describes: the title, album, and
+artwork of the track, replacing whatever it showed before.
+
 ### Play
 ```bash
+# Queues every embedded mp3 file and responds with the track response.
 curl -X POST localhost:8080/sonos/play \
   -H "Content-Type: application/json" \
   -d '{"speaker": "Living Room"}'
@@ -872,16 +895,17 @@ curl -X POST localhost:8080/sonos/restart-playlist \
 
 ### Get Preset Playlist (View Contents)
 ```bash
-# Replace {num} with a number 0-9
+# Replace {num} with a number 0-9 or a letter a-z
 curl -s localhost:8080/sonos/preset/{num}
 
 # Example for preset 5:
 curl -s localhost:8080/sonos/preset/5
 ```
 
-### Play Preset (0-9)
+### Play Preset (0-9, a-z)
 ```bash
-# Replace {num} with a number 0-9
+# Replace {num} with a number 0-9 or a letter a-z (upper case is lower cased).
+# Responds with the track response of the first track.
 curl -X POST localhost:8080/sonos/preset/{num} \
   -H "Content-Type: application/json" \
   -d '{"speaker": "Living Room"}'
@@ -890,6 +914,17 @@ curl -X POST localhost:8080/sonos/preset/{num} \
 curl -X POST localhost:8080/sonos/preset/5 \
   -H "Content-Type: application/json" \
   -d '{"speaker": "Living Room"}'
+```
+
+### Get Preset Artwork
+```bash
+# Serves music/presets/{num}/artwork.jpg scaled to fit 135x135 as a baseline
+# JPEG with an ETag. Responds 404 if the preset has no artwork.
+curl -s -o artwork.jpg localhost:8080/sonos/artwork/9
+
+# Serves a track's artwork file, e.g. music/presets/7/01-The Humbling River.jpg,
+# the same way. Use the artwork_url of a track response.
+curl -s -o track.jpg "localhost:8080/sonos/artwork/7/01-The%20Humbling%20River.jpg"
 ```
 
 ### Get Queue
@@ -901,6 +936,7 @@ curl -X POST localhost:8080/sonos/queue \
 
 ### Play/Pause Toggle
 ```bash
+# Responds with the track response when it resumes playback, otherwise text.
 curl -X POST localhost:8080/sonos/play-pause \
   -H "Content-Type: application/json" \
   -d '{"speaker": "Living Room"}'
@@ -908,6 +944,7 @@ curl -X POST localhost:8080/sonos/play-pause \
 
 ### Next Track
 ```bash
+# Responds with the track response of the new current track.
 curl -X POST localhost:8080/sonos/next \
   -H "Content-Type: application/json" \
   -d '{"speaker": "Living Room"}'
@@ -915,6 +952,7 @@ curl -X POST localhost:8080/sonos/next \
 
 ### Previous Track
 ```bash
+# Responds with the track response of the new current track.
 curl -X POST localhost:8080/sonos/previous \
   -H "Content-Type: application/json" \
   -d '{"speaker": "Living Room"}'

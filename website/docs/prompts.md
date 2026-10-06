@@ -236,3 +236,111 @@ I updated the CardPuter controller.ino file to set the display brightness to 60%
 - CardPuter now starts with 60% brightness instead of default maximum
 - Provides better battery life and more comfortable viewing
 - Consistent brightness setting from startup
+## Turn 11 - Letter presets, file names, and time of day limits
+
+> Support playlist presets with letters a-z in addition to numbers, lower cased, removing existing letter key bindings. Return the file name played from the preset, next, and previous handlers and display it on the CardPuter. Add configurable flags: max volume 40 at 7:00 AM and 15 at 6:30 PM; a 30 minute sleep timer for presets between 6:30 PM and 4 AM; a hard playback cutoff at 7:45 PM. Push and open a pull request.
+
+**Server:**
+- Preset names are lower cased and must be alphanumeric, so `/sonos/preset/G` plays preset `g`.
+- `POST /sonos/preset/{x}` responds with the file name of the first track; `/sonos/next` and `/sonos/previous` respond with the new current track's file name.
+- New `schedule.go` adds flags `-day-start`, `-day-max-volume`, `-night-start`, `-night-max-volume`, `-sleep-timer-start`, `-sleep-timer-end`, `-sleep-timer`, and `-cutoff`.
+- The max volume is enforced when a preset starts, on volume up, and at night start. Presets in the sleep window set the Sonos sleep timer. A background scheduler stops the default speaker at the cutoff, retrying for up to 10 minutes.
+
+**CardPuter:**
+- a-z keys play presets (lower cased); the P (play/pause) and M (mute) bindings were removed.
+- The file name is displayed after presets and next/previous track.
+
+## Turn 12 - Preset artwork on the CardPuter
+
+> Load artwork.jpg in each preset folder if it exists and return it to the cardputer, which displays it on the screen indefinitely until the next preset button is pushed. The preset play endpoint returns the artwork URL path and a checksum. The cardputer caches the image and etag checksum and only fetches if the artwork changed. Example artwork added in preset 9.
+
+**Server:**
+- New `artwork.go` serves `GET /sonos/artwork/{preset}`. The 1200x1200 source is scaled to fit 135x135 (`-artwork-size`) and re-encoded as a baseline JPEG (~7KB), because the CardPuter has no PSRAM and its decoder does not support progressive JPEGs. Responses carry an `ETag` and honor `If-None-Match`.
+- `POST /sonos/preset/{preset}` now responds with JSON: `preset`, `speaker`, `filename`, plus `artwork_url` and `artwork_etag` (SHA-256 of the served image) when the preset has artwork. `GET` includes the artwork fields too.
+
+**CardPuter:**
+- Artwork and its checksum are cached in LittleFS at `/art/<preset>.jpg` and `.etag`, fetched only when the checksum changes.
+- The artwork is drawn on the left with the preset and file name on the right, and stays on screen (screen timeout skipped) until the next preset. Other controls show their status briefly and return to the artwork.
+- Compiled with the Arduino IDE's bundled arduino-cli for `m5stack:esp32:m5stack_cardputer`.
+
+## Turn 13 - Configurable artwork screen timeout
+
+> Bring back the long 30 second timeout. Allow this to be configurable via the server response, default the response to configure the cardputer behavior to display the artwork for 30 seconds.
+
+- New `-artwork-timeout` flag (default `30s`, `0` keeps the screen on) is sent as `artwork_timeout_seconds` in the preset response when the preset has artwork.
+- The CardPuter uses it as the screen timeout while artwork is displayed, defaulting to 30 seconds if the field is missing. Pressing a key wakes the screen back to the artwork.
+
+## Turn 14 - Remove apostrophes from mp3 file names
+
+> Rename the mp3 files to remove the apostrophes
+
+`go:embed` rejects `'` in file names, which broke the build. Renamed the three preset 9 tracks to `04-How Far Ill Go.mp3`, `06-How Far Ill Go (Reprise).mp3`, and `07-Youre Welcome.mp3`. The mp3s are git-ignored, so only this log changed in git.
+
+## Turn 15 - Embed artwork in mp3 ID3 tags
+
+> Give me a command to add the artwork.jpg to the id3 tags of each mp3 in preset 9
+
+Suggested an `ffmpeg` loop that stream-copies the audio and attaches `artwork.jpg` as an ID3v2.3 front cover.
+
+> Write a go program "script" to do this for me. Take a path to a preset file as input or iterate over all presets and ensure the artwork is added to each mp3 file as a an id3v2 tag compatible with sonos.
+
+- New `cmd/embed-artwork` (`go run ./cmd/embed-artwork [-n] [preset-dir | file.mp3]...`) uses `github.com/bogem/id3v2/v2`. With no arguments it processes every preset folder under `-presets` (default `music/presets`) that has `artwork.jpg`.
+- Tags are written as ID3v2.3 with a single `APIC` front cover (`image/jpeg`). ID3v2.4 tags are converted: UTF-8 text is re-encoded as ISO-8859-1 or UTF-16, multi-value separators become `/`, and `TDRC`/`TDOR` become `TYER`/`TORY`. Other frames are preserved and the audio is left untouched.
+- Files that already have the artwork are skipped, so it is safe to re-run. `-n` is a dry run. Progressive JPEG artwork is rejected.
+- Ran it on preset 9: all 13 tracks updated, audio stream checksums unchanged, a second run reported no changes.
+
+## Turn 16 - Export Music.app tags to YAML and embed them
+
+> Write another go program that interacts with Music.app like the program in the tracks folder does. Have this program "script" in Go read all tracks from the current playlist and write the ID3 metadata to YAML files. Then, add a new cmd script called embed-tags which reads the yaml tags written by the first script, if they exist, and write all ID3v2 tags into the MP3 files. The write should be authoritative, all tags cleared, then the tags written over. Including the artwork, artwork should not clear all tags but should add the artwork in. Document how this works.
+
+- New `cmd/export-tags` runs JavaScript for Automation via `osascript` (reading all track properties in bulk) and writes `NN-<title>.yaml` per track. The playlist is `-playlist NAME`, else the playing playlist, else the one in the front Music window. Existing YAML files are kept unless `-f`.
+- New `cmd/embed-tags` finds each mp3's YAML file (same name, else same track number prefix), removes every ID3v2 frame and any ID3v1 tag, writes the YAML frames as ID3v2.3, then adds `artwork.jpg` as the front cover. Without `artwork.jpg` the file's existing pictures are kept. Files already matching are skipped; `-n` is a dry run.
+- Shared code moved to `internal/mp3tag` (YAML schema, frame mapping, artwork checks, ID3v1 removal, file matching) with unit tests. `embed-artwork` now uses it.
+- Exported the "Moana Live Action Soundtrack" playlist to `music/presets/9/*.yaml` and embedded the tags: 13 files updated, audio unchanged, a second run reported all `ok`.
+- Documented in `website/docs/mp3-tags.md` and the README.
+
+## Turn 17 - Read the playlist name from playlist-name.txt
+
+> Update the export-tags command to read playlist-name.txt from the root of the playlist folder if it exists, and use that playlist name in the file content body if the file exists. Commit and push
+
+- `export-tags` reads `playlist-name.txt` from the `-o` folder when `-playlist` is not given, and exports that playlist. Its name is recorded in the header comment of each YAML file. An empty file is an error. Precedence: `-playlist`, `playlist-name.txt`, the playing playlist, the front Music window.
+- Added `music/presets/9/playlist-name.txt` ("Moana Live Action Soundtrack") and updated `website/docs/mp3-tags.md` and the README.
+
+## Turn 18 - export-tags ignored the preset folder argument
+
+> I ran these two but the second said "no tags" this is from my zsh history `go run ./cmd/export-tags ./music/presets/3` then `go run ./cmd/embed-tags ./music/presets/3`
+
+`export-tags` only took the folder from `-o`, so it ignored the argument, read no `playlist-name.txt`, exported the playing playlist, and wrote the YAML files to the repo root. `embed-tags` then found no YAML files in preset 3.
+
+- `export-tags` now takes the preset folder as an optional argument, like `embed-tags`. `-o` still works; more than one argument prints usage.
+- File names map `/` to a space, so "Reprise/Instrumental" matches the mp3 name "Reprise Instrumental".
+- Removed the 47 YAML files from the repo root and re-ran both commands: 47 YAML files in preset 3 from `playlist-name.txt` ("Snow White"), 47 mp3 files updated, a second run all `ok`.
+
+## Turn 19 - Export artwork for each track
+
+> Make sure the ./cmd/export-tags exports a jpg for each mp3 file not one for the entire playlist. Playlist 7 has different artwork for each file for example.
+
+- `export-tags` now also writes `NN-<title>.jpg` for each track from the track's first artwork in Music.app. JavaScript for Automation cannot write raw artwork data, so an AppleScript writes each track's raw data to a temp directory, looking the playlist up by the persistent ID the JXA script returns. PNG or progressive JPEG artwork is re-encoded as baseline JPEG. `-artwork=false` skips it, and `-f` now also overwrites JPEG files.
+- `embed-tags` and `embed-artwork` choose artwork per mp3: the JPEG named like the mp3, then the JPEG named like its YAML file, then the folder's `artwork.jpg`. `embed-artwork` no longer requires `artwork.jpg`; files without any artwork are reported as `no art`.
+- Ran on preset 7 ("Humbling River"): 13 distinct 600x600 JPEGs exported, 12 mp3 files updated and 1 already matching, and the embedded pictures match each track's JPEG.
+
+## Turn 20 - Track title, album, and artwork in responses
+
+> Make sure the jpg and yaml files are embedded into the go executable. Make sure the response body always returns the albumn and track name from the ID3 tag if present when playing something. Make sure the cardputure always defers to the response body. Make sure the server returns the albumn art URL of the track jpg file if present, otherwise fall back to artwork.jpg.
+
+**Server:**
+- `//go:embed all:music` already embeds the YAML and JPEG files. New `TestMusicEmbedded` checks every file under `music/` is in the executable.
+- New `track.go`: `TrackResponse` replaces `PresetPlayResponse` and is returned by preset, next, previous, play, and play-pause when it resumes. It adds `title`, `album`, and `artist` from the mp3's ID3 tag (cached; title falls back to the file name) and the track's artwork URL.
+- Artwork: `/sonos/artwork/{preset}/{name}.jpg` serves a track's JPEG scaled for the CardPuter. The track response uses the track's own JPEG (same name as the mp3 or its YAML file), falling back to `/sonos/artwork/{preset}` for `artwork.jpg`.
+- `mp3tag.TagsFile` and `ArtworkFile` now work on an `fs.FS` so the server uses the same lookup on the embedded files; `mp3tag.Find` wraps them for OS paths in the commands.
+
+**CardPuter:**
+- Every track response replaces the preset, title, album, and artwork shown, including next and previous. A failed artwork download shows no artwork rather than stale artwork. Title is shown in yellow and album in cyan. Compiled with arduino-cli (96% of flash).
+
+**Docs:** Track Responses in `website/docs/controller.md`, a Server section in `website/docs/mp3-tags.md`, and the README.
+
+## Turn 21 - Commit and push
+
+> Commit and push
+
+Committed the `deploy.sh` server change, `music/presets/9/playlist-name.txt`, and the YAML tags and `playlist-name.txt` files of presets 3 to 8, then pushed. The JPEG artwork files were left uncommitted because the repository is public and they are album cover images; they are still embedded when the server is built locally.
