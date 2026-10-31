@@ -344,3 +344,23 @@ Suggested an `ffmpeg` loop that stream-copies the audio and attaches `artwork.jp
 > Commit and push
 
 Committed the `deploy.sh` server change, `music/presets/9/playlist-name.txt`, and the YAML tags and `playlist-name.txt` files of presets 3 to 8, then pushed. The JPEG artwork files were left uncommitted because the repository is public and they are album cover images; they are still embedded when the server is built locally.
+
+## Turn 22 - Identical firmware with server-side profiles
+
+> Update the firmware to be identical on three devices. One for each kid, Clark and Rylo. The device should save the speaker it controls, and otherwise use the web service to control the speakers. Ensure there is a way to easily enter the settings where wifi, default sonos speaker name, default volume and volume limit, etc... The settings should be easily accessible by an adult, but not the kids. Make it a sequence, like holding a certain button or key when the devices is powered on to enter settings mode. Add a feature where there are profile directories, profiles/1/ profiles/2/ etc... with clark being 1 and rylo being 2 and jeff being 3. Store a json or yaml file in the profile directory. Serve it up over HTTP. Store profile settings here. Make the profile have a URL to a profile image, support https so the profile yaml could specify a github avatar if need be, or serve a profile image from the embedded filesystem by default. Modify the buttom firmware to have this concept of profiles. The firmware should store the current profile being used, but otherwise fetch that profile from the server. A primary goal of this system is that we should be able to change behavior by deploying a new version of the server, without having to program every button.
+
+**Server:**
+- New `profiles/{1,2,3}/profile.yaml` (Clark, Rylo, Jeff) and generated `avatar.jpg` images, embedded in the executable. Fields: `name`, `speaker`, `image`, `color`, `default_volume`, `max_volume`, `help`, `keys`. Invalid profiles stop the server from starting.
+- New `profile.go`: `GET /profiles/`, `GET /profiles/{id}`, `GET /profiles/{id}/profile.yaml`, `GET /profiles/{id}/avatar`, and `POST /profiles/{id}/key`. The key endpoint maps the key to an action (defaults match the old firmware, overridable per profile) and dispatches it to the existing handlers.
+- The image may be an https URL. The server fetches it (cached for an hour), scales it to 96x96, and re-encodes it as a baseline JPEG, falling back to `avatar.jpg`. Profile 3 uses `https://github.com/jeffmccune.png`.
+- Presets start at the profile or device `default_volume`. Volume up and preset start honor the lower of the time of day schedule and `max_volume`.
+- The bedtime volume limit and cutoff now apply to every profile speaker and every speaker a device has controlled, not only `-default-speaker`.
+- Discovery found a "Rylos Room" speaker, so Rylo's profile uses it.
+
+**CardPuter:**
+- One firmware for every device. Settings in NVS: up to 3 WiFi networks each with a server URL, profile number, speaker, start volume, and volume limit. Passwords saved by the old firmware are imported on first start.
+- Hold **Fn+S** while switching on to open settings. The profile and speaker are picked from lists fetched from the server; WiFi from a scan.
+- The ready screen shows the profile image, name in the profile color, speaker, and help lines from the server. The profile and image are cached in LittleFS.
+- Every key press is sent to `POST /profiles/{id}/key`. Compiled with arduino-cli (97% of flash).
+
+**Docs:** New `website/docs/profiles.md`, README, and `cardputer/CLAUDE.md`.

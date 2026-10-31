@@ -9,6 +9,16 @@ As a kid, I'd like to play my favorite tracks.
 
 The plan to implement these user stories is to put most of the logic in a Go executable and use the cardputer as a simple hotkey controller.  Ideally he will be able to turn it on, wait for a green light, then push one button to do the thing he wants to do.
 
+## Profiles
+
+Every CardPuter runs identical firmware and stores only its settings: WiFi,
+server, profile number, and optional speaker and volume overrides. Hold
+**Fn+S** while switching it on to open settings. Profiles live in
+`profiles/{id}/profile.yaml` (1 Clark, 2 Rylo, 3 Jeff), are embedded in the
+server, and are served at `/profiles/{id}`. The CardPuter sends every key press
+to `POST /profiles/{id}/key` and the server decides what it does, so behavior
+changes by deploying a new server. See `website/docs/profiles.md`.
+
 ## Time of day behavior
 
 sonoserve limits volume and stops playback in the evening.  All times are

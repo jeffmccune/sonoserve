@@ -21,32 +21,16 @@ M5Stack CardPuter v1.1 (ESP32S3) firmware for controlling a Sonos speaker via HT
 
 ## Architecture
 
-### Network Configuration
-The firmware supports multiple WiFi networks with priority-based connection:
-1. "JaM Family" network (primary)
-2. "Sound House" network (fallback with hardcoded server IP: 192.168.4.88)
-3. Custom network (user-configurable)
+Every device runs identical firmware. See `website/docs/profiles.md`.
 
-Server endpoints:
-- Default: `http://tools:8080/sonos/`
-- Sound House: `http://192.168.4.88:8080/sonos/`
-
-### Control Interface
-Keyboard mappings:
-- **0-9**: Play preset playlists
-- **P**: Play/Pause toggle
-- **M**: Mute toggle
-- **,**: Previous track
-- **/**: Next track
-- **;**: Volume up
-- **.**: Volume down
-
-### Features
-- Auto-connect to known networks with saved credentials
-- 30-second screen timeout for battery conservation
-- Battery level indicator with color coding
-- Visual feedback for all commands (200 OK in white, errors in red)
-- Password input with multiple confirm key options (Enter, Space, backtick, fn+M)
+- Device settings (NVS namespace `sonoserve`): up to 3 WiFi networks each with
+  a server URL, profile number, optional speaker, start volume, and volume
+  limit. Hold **Fn+S** at power on to open settings.
+- The profile (name, image, color, speaker, volumes, help text) is fetched
+  from `GET /profiles/{id}` at startup and cached in LittleFS.
+- Every key press is sent to `POST /profiles/{id}/key`; the server decides
+  what the key does, so behavior changes by deploying the server.
+- 30-second screen timeout, battery indicator, artwork cached by ETag.
 
 ## Code Upload Process
 1. Connect CardPuter via USB cable
@@ -55,18 +39,10 @@ Keyboard mappings:
 4. Upload sketch
 
 ## API Communication
-All requests are POST with JSON body:
+Key presses are POSTed with JSON body:
 ```json
-{"speaker": "Kids Room"}
+{"key": "a", "speaker": "Kids Room", "default_volume": 15, "max_volume": 30}
 ```
-
-Endpoints:
-- `/sonos/preset/{1-9}` - Play preset playlist
-- `/sonos/play` - Start playback
-- `/sonos/pause` - Pause playback
-- `/sonos/play-pause` - Toggle play/pause
-- `/sonos/mute` - Toggle mute
-- `/sonos/previous` - Previous track
-- `/sonos/next` - Next track
-- `/sonos/volume-up` - Increase volume
-- `/sonos/volume-down` - Decrease volume
+`speaker` and the volumes are only sent when set in device settings. The
+response is a track response (JSON with `filename`), a text status, or 204 if
+the key does nothing.

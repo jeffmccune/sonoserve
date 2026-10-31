@@ -185,6 +185,7 @@ func setupRoutes() *http.ServeMux {
 	mux.HandleFunc("/sonos/volume-up", volumeUpHandler)
 	mux.HandleFunc("/sonos/volume-down", volumeDownHandler)
 	mux.HandleFunc("/sonos/mute", muteHandler)
+	mux.HandleFunc("/profiles/", profilesHandler)
 
 	return mux
 }
@@ -380,9 +381,19 @@ func playPreset(w http.ResponseWriter, r *http.Request, presetNum string, speake
 	
 	log.Printf("Queue URI set successfully, starting playback...")
 	
-	// Enforce the time of day volume limit before playback starts
+	// Start at the profile default volume, and enforce the profile and time
+	// of day volume limit, before playback starts
 	now := time.Now()
-	if err := enforceMaxVolume(s, speaker.Name, now); err != nil {
+	opts := volumeOptionsFrom(r.Context())
+	limit := opts.Limit(now)
+	if opts.Default > 0 {
+		v := min(opts.Default, limit)
+		if err := s.SetVolume(0, "Master", uint16(v)); err != nil {
+			log.Printf("Warning: Failed to set default volume: %v", err)
+		} else {
+			log.Printf("Set volume on %s to default %d", speaker.Name, v)
+		}
+	} else if err := enforceMaxVolume(s, speaker.Name, limit); err != nil {
 		log.Printf("Warning: Failed to enforce max volume: %v", err)
 	}
 	
@@ -1391,11 +1402,15 @@ func volumeUpHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	// Increase volume by 5%, up to the time of day limit
-	limit := uint16(schedule.MaxVolume(time.Now()))
+	// Increase volume by 5%, up to the profile and time of day limit
+	limit := uint16(volumeOptionsFrom(r.Context()).Limit(time.Now()))
 	newVolume := currentVolume + 5
 	if newVolume > limit {
 		newVolume = limit
+	}
+	if newVolume < currentVolume {
+		// Never raise a volume already above the limit, nor lower it
+		newVolume = currentVolume
 	}
 	
 	// Set new volume
@@ -1469,9 +1484,9 @@ func volumeDownHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	
 	// Decrease volume by 5%, min 0
-	newVolume := currentVolume - 5
-	if newVolume < 0 {
-		newVolume = 0
+	var newVolume uint16
+	if currentVolume > 5 {
+		newVolume = currentVolume - 5
 	}
 	
 	// Set new volume
@@ -1659,6 +1674,15 @@ func main() {
 		log.Printf("Playback cutoff: %s", schedule.Cutoff)
 	}
 	
+	all, err := profiles()
+	if err != nil {
+		log.Fatalf("Invalid profiles: %v", err)
+	}
+	for _, id := range sortedProfileIDs(all) {
+		p := all[id]
+		log.Printf("Profile %s: %s, speaker %q, image %q", id, p.Name, p.Speaker, p.Image)
+	}
+
 	go runScheduler()
 
 	// Perform initial Sonos discovery on startup

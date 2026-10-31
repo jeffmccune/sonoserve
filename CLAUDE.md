@@ -52,7 +52,7 @@ The system uses a client-server model where the CardPuter sends HTTP requests to
 - Basic HTTP server structure implemented
 - Discovery endpoint implemented
 - Basic Web UI implemented for testing in controller.md (simulates the http requests the esp32s3 will make)
-- No work on esp32s3 started
+- CardPuter firmware in cardputer/controller.ino, identical on every device; per-person profiles in profiles/{id}/profile.yaml (see website/docs/profiles.md)
 
 ## Reminders
 

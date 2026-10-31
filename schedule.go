@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"net/url"
@@ -151,9 +152,8 @@ func connectSpeaker(name string, services int) (*sonos.Sonos, Speaker, error) {
 	return s, speaker, nil
 }
 
-// enforceMaxVolume lowers the volume to the current limit if it is above it.
-func enforceMaxVolume(s *sonos.Sonos, speakerName string, now time.Time) error {
-	limit := schedule.MaxVolume(now)
+// enforceMaxVolume lowers the volume to limit if it is above it.
+func enforceMaxVolume(s *sonos.Sonos, speakerName string, limit int) error {
 	current, err := s.GetVolume(0, "Master")
 	if err != nil {
 		return fmt.Errorf("failed to get volume: %w", err)
@@ -212,32 +212,43 @@ const (
 	scheduleRetryWindow = 10 * time.Minute
 )
 
-// runScheduler performs time of day actions against the default speaker.
+// forEachSpeaker returns a scheduled action which runs fn on each of the
+// scheduledSpeakers. fn must be idempotent, a failure retries every speaker.
+func forEachSpeaker(services int, fn func(s *sonos.Sonos, speaker Speaker, now time.Time) error) func(now time.Time) error {
+	return func(now time.Time) error {
+		var errs []error
+		for _, name := range scheduledSpeakers() {
+			s, speaker, err := connectSpeaker(name, services)
+			if err == nil {
+				err = fn(s, speaker, now)
+			}
+			if err != nil {
+				errs = append(errs, fmt.Errorf("%s: %w", name, err))
+			}
+		}
+		return errors.Join(errs...)
+	}
+}
+
+// runScheduler performs time of day actions against the default speaker and
+// the speakers of every profile.
 func runScheduler() {
 	actions := []*scheduledAction{
 		{
 			name: "night volume limit",
 			at:   schedule.NightStart,
-			run: func(now time.Time) error {
-				s, speaker, err := connectSpeaker(defaultSpeaker, sonos.SVC_RENDERING_CONTROL)
-				if err != nil {
-					return err
-				}
-				return enforceMaxVolume(s, speaker.Name, now)
-			},
+			run: forEachSpeaker(sonos.SVC_RENDERING_CONTROL, func(s *sonos.Sonos, speaker Speaker, now time.Time) error {
+				return enforceMaxVolume(s, speaker.Name, schedule.MaxVolume(now))
+			}),
 		},
 	}
 	if schedule.CutoffEnabled {
 		actions = append(actions, &scheduledAction{
 			name: "playback cutoff",
 			at:   schedule.Cutoff,
-			run: func(now time.Time) error {
-				s, speaker, err := connectSpeaker(defaultSpeaker, sonos.SVC_AV_TRANSPORT)
-				if err != nil {
-					return err
-				}
+			run: forEachSpeaker(sonos.SVC_AV_TRANSPORT, func(s *sonos.Sonos, speaker Speaker, now time.Time) error {
 				return ensureStopped(s, speaker.Name)
-			},
+			}),
 		})
 	}
 

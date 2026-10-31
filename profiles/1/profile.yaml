@@ -1,0 +1,43 @@
+# Profile 1 - Clark
+#
+# Served at /profiles/1. The CardPuter stores only the profile number and
+# fetches this profile from the server at startup, so changes here take effect
+# by deploying a new server, without reprogramming the device.
+
+# Name shown on the CardPuter ready screen.
+name: Clark
+
+# Sonos speaker this profile controls. A speaker saved in the device settings
+# takes precedence. Empty uses the server -default-speaker.
+speaker: Kids Room
+
+# Profile image: a file in this folder, or an http(s) URL such as a GitHub
+# avatar, e.g. https://github.com/<user>.png. The server fetches, scales, and
+# re-encodes the image as a baseline JPEG for the CardPuter, falling back to
+# avatar.jpg in this folder if the URL cannot be fetched.
+image: avatar.jpg
+
+# Accent color of the ready screen, #RRGGBB.
+color: "#1E6EDC"
+
+# Volume a preset starts at, 0 leaves the volume unchanged. Never above the
+# limit. Device settings take precedence when not 0.
+default_volume: 15
+
+# Maximum volume, 0 for no limit beyond the server time of day schedule. The
+# lower of this and the schedule applies. Device settings take precedence when
+# not 0.
+max_volume: 30
+
+# Lines shown on the ready screen below the name.
+help:
+  - 0-9 a-z  Music
+  - "[ ]  Pause / Play"
+  - ", /  Back / Next"
+  - "; .  Louder / Quieter"
+
+# Key actions override the defaults: 0-9 and a-z play the preset of the same
+# name, [ pause, ] play, , previous, / next, ; volume-up, . volume-down.
+# Actions: preset:<name>, play, pause, play-pause, next, previous, volume-up,
+# volume-down, mute, none.
+keys: {}
