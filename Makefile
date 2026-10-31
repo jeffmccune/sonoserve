@@ -163,6 +163,12 @@ tools: ## Install development tools
 		go install golang.org/x/tools/cmd/goimports@latest; \
 	fi
 
+.PHONY: linux-amd64
+linux-amd64: generate $(BIN_DIR) ## Build for linux amd64
+	@echo "Cross-compiling for linux amd64..."
+	@mkdir -p $(DIST_DIR)
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(DIST_DIR)/$(BINARY_NAME)-linux-amd64 $(MAIN_PACKAGE)
+
 .PHONY: cross-compile
 cross-compile: generate $(BIN_DIR) ## Build for multiple platforms
 	@echo "Cross-compiling for multiple platforms..."
