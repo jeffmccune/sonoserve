@@ -29,18 +29,41 @@ func TestParseTimeOfDay(t *testing.T) {
 func TestMaxVolume(t *testing.T) {
 	s := defaultSchedule()
 	cases := map[string]int{
-		"06:59": 15,
+		"06:59": 20,
 		"07:00": 40,
 		"12:00": 40,
 		"18:29": 40,
-		"18:30": 15,
-		"23:00": 15,
-		"03:00": 15,
+		"18:30": 20,
+		"23:00": 20,
+		"03:00": 20,
 	}
 	for hhmm, want := range cases {
 		if got := s.MaxVolume(at(hhmm)); got != want {
 			t.Errorf("MaxVolume(%s) = %d, want %d", hhmm, got, want)
 		}
+	}
+}
+
+func TestPresetVolume(t *testing.T) {
+	s := defaultSchedule()
+	s.DayPresetVolume = 50
+	cases := []struct {
+		hhmm        string
+		limit, want int
+	}{
+		{"19:00", 20, 16}, // 80% of the night max
+		{"19:00", 15, 12},
+		{"12:00", 40, 20}, // 50% of the day max
+		{"12:00", 30, 15}, // a lower profile limit
+	}
+	for _, c := range cases {
+		if got := s.PresetVolume(at(c.hhmm), c.limit); got != c.want {
+			t.Errorf("PresetVolume(%s, %d) = %d, want %d", c.hhmm, c.limit, got, c.want)
+		}
+	}
+	s.NightPresetVolume = 0
+	if got := s.PresetVolume(at("19:00"), 20); got != 0 {
+		t.Errorf("disabled: got %d", got)
 	}
 }
 

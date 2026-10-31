@@ -20,9 +20,10 @@ image: avatar.jpg
 # Accent color of the ready screen, #RRGGBB.
 color: "#1E6EDC"
 
-# Volume a preset starts at, 0 leaves the volume unchanged. Never above the
-# limit. Device settings take precedence when not 0.
-default_volume: 15
+# Volume a preset starts at, never above the limit. 0 uses the server
+# -day-preset-volume and -night-preset-volume percent of the limit. Device
+# settings take precedence when not 0.
+default_volume: 0
 
 # Maximum volume, 0 for no limit beyond the server time of day schedule. The
 # lower of this and the schedule applies. Device settings take precedence when

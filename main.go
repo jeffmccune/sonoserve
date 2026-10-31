@@ -381,17 +381,21 @@ func playPreset(w http.ResponseWriter, r *http.Request, presetNum string, speake
 
 	log.Printf("Queue URI set successfully, starting playback...")
 
-	// Start at the profile default volume, and enforce the profile and time
-	// of day volume limit, before playback starts
+	// Start at the profile default volume, else the day or night preset
+	// volume percent of the limit, and enforce the profile and time of day
+	// volume limit, before playback starts
 	now := time.Now()
 	opts := volumeOptionsFrom(r.Context())
 	limit := opts.Limit(now)
-	if opts.Default > 0 {
-		v := min(opts.Default, limit)
-		if err := s.SetVolume(0, "Master", uint16(v)); err != nil {
-			log.Printf("Warning: Failed to set default volume: %v", err)
+	startVolume := min(opts.Default, limit)
+	if opts.Default <= 0 {
+		startVolume = schedule.PresetVolume(now, limit)
+	}
+	if startVolume > 0 {
+		if err := s.SetVolume(0, "Master", uint16(startVolume)); err != nil {
+			log.Printf("Warning: Failed to set preset volume: %v", err)
 		} else {
-			log.Printf("Set volume on %s to default %d", speaker.Name, v)
+			log.Printf("Set volume on %s to %d (limit %d)", speaker.Name, startVolume, limit)
 		}
 	} else if err := enforceMaxVolume(s, speaker.Name, limit); err != nil {
 		log.Printf("Warning: Failed to enforce max volume: %v", err)
@@ -1599,6 +1603,8 @@ func main() {
 		dayMaxVolume      = flag.Int("day-max-volume", schedule.DayMaxVolume, "maximum volume from -day-start until -night-start")
 		nightStart        = flag.String("night-start", schedule.NightStart.String(), "time of day (HH:MM) the night max volume takes effect")
 		nightMaxVolume    = flag.Int("night-max-volume", schedule.NightMaxVolume, "maximum volume from -night-start until -day-start")
+		dayPresetVolume   = flag.Int("day-preset-volume", schedule.DayPresetVolume, "volume a preset starts at from -day-start until -night-start, as a percent of the max volume (0 leaves the volume unchanged)")
+		nightPresetVolume = flag.Int("night-preset-volume", schedule.NightPresetVolume, "volume a preset starts at from -night-start until -day-start, as a percent of the max volume (0 leaves the volume unchanged)")
 		sleepStart        = flag.String("sleep-timer-start", schedule.SleepTimerStart.String(), "start of the window (HH:MM) when presets set the sleep timer")
 		sleepEnd          = flag.String("sleep-timer-end", schedule.SleepTimerEnd.String(), "end of the window (HH:MM) when presets set the sleep timer")
 		sleepTimer        = flag.Duration("sleep-timer", schedule.SleepTimer, "sleep timer set by presets within the sleep timer window (0 disables)")
@@ -1624,13 +1630,15 @@ func main() {
 	if schedule.CutoffEnabled {
 		schedule.Cutoff = parse("cutoff", *cutoff)
 	}
-	for name, v := range map[string]int{"day-max-volume": *dayMaxVolume, "night-max-volume": *nightMaxVolume} {
+	for name, v := range map[string]int{"day-max-volume": *dayMaxVolume, "night-max-volume": *nightMaxVolume, "day-preset-volume": *dayPresetVolume, "night-preset-volume": *nightPresetVolume} {
 		if v < 0 || v > 100 {
 			log.Fatalf("Invalid -%s: %d must be between 0 and 100", name, v)
 		}
 	}
 	schedule.DayMaxVolume = *dayMaxVolume
 	schedule.NightMaxVolume = *nightMaxVolume
+	schedule.DayPresetVolume = *dayPresetVolume
+	schedule.NightPresetVolume = *nightPresetVolume
 	if *artworkSizePtr < 1 {
 		log.Fatalf("Invalid -artwork-size: %d must be positive", *artworkSizePtr)
 	}
@@ -1669,6 +1677,7 @@ func main() {
 	log.Printf("Listen address: %s", *addr)
 	log.Printf("Resource host: %s", resourceHost)
 	log.Printf("Max volume: %d from %s, %d from %s", schedule.DayMaxVolume, schedule.DayStart, schedule.NightMaxVolume, schedule.NightStart)
+	log.Printf("Preset volume: %d%% of max from %s, %d%% of max from %s", schedule.DayPresetVolume, schedule.DayStart, schedule.NightPresetVolume, schedule.NightStart)
 	log.Printf("Sleep timer: %s for presets from %s to %s", schedule.SleepTimer, schedule.SleepTimerStart, schedule.SleepTimerEnd)
 	if schedule.CutoffEnabled {
 		log.Printf("Playback cutoff: %s", schedule.Cutoff)

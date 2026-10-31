@@ -85,6 +85,12 @@ type Schedule struct {
 	NightStart     timeOfDay
 	NightMaxVolume int
 
+	// DayPresetVolume and NightPresetVolume are the volume a preset starts
+	// at, as a percent of the max volume at that time. Zero leaves the
+	// volume unchanged.
+	DayPresetVolume   int
+	NightPresetVolume int
+
 	SleepTimerStart timeOfDay
 	SleepTimerEnd   timeOfDay
 	SleepTimer      time.Duration
@@ -95,15 +101,17 @@ type Schedule struct {
 
 func defaultSchedule() Schedule {
 	return Schedule{
-		DayStart:        mustParseTimeOfDay("07:00"),
-		DayMaxVolume:    40,
-		NightStart:      mustParseTimeOfDay("18:30"),
-		NightMaxVolume:  15,
-		SleepTimerStart: mustParseTimeOfDay("18:30"),
-		SleepTimerEnd:   mustParseTimeOfDay("04:00"),
-		SleepTimer:      30 * time.Minute,
-		Cutoff:          mustParseTimeOfDay("19:45"),
-		CutoffEnabled:   true,
+		DayStart:          mustParseTimeOfDay("07:00"),
+		DayMaxVolume:      40,
+		NightStart:        mustParseTimeOfDay("18:30"),
+		NightMaxVolume:    20,
+		DayPresetVolume:   80,
+		NightPresetVolume: 80,
+		SleepTimerStart:   mustParseTimeOfDay("18:30"),
+		SleepTimerEnd:     mustParseTimeOfDay("04:00"),
+		SleepTimer:        30 * time.Minute,
+		Cutoff:            mustParseTimeOfDay("19:45"),
+		CutoffEnabled:     true,
 	}
 }
 
@@ -116,6 +124,21 @@ func (s Schedule) MaxVolume(now time.Time) int {
 		return s.DayMaxVolume
 	}
 	return s.NightMaxVolume
+}
+
+// PresetVolumePercent returns the percent of the max volume a preset starts
+// at now, zero to leave the volume unchanged.
+func (s Schedule) PresetVolumePercent(now time.Time) int {
+	if inWindow(now, s.DayStart, s.NightStart) {
+		return s.DayPresetVolume
+	}
+	return s.NightPresetVolume
+}
+
+// PresetVolume returns the volume a preset starts at now given the max volume
+// limit, zero to leave the volume unchanged.
+func (s Schedule) PresetVolume(now time.Time, limit int) int {
+	return (limit*s.PresetVolumePercent(now) + 50) / 100
 }
 
 // SleepTimerAt returns the sleep timer to set when a preset starts at now, or

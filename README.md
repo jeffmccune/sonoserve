@@ -29,14 +29,18 @@ sonoserve limits volume and stops playback in the evening.  All times are
 | `-day-start` | `07:00` | Max volume becomes `-day-max-volume` |
 | `-day-max-volume` | `40` | Max volume during the day |
 | `-night-start` | `18:30` | Max volume becomes `-night-max-volume`; volume above it is lowered |
-| `-night-max-volume` | `15` | Max volume at night |
+| `-night-max-volume` | `20` | Max volume at night |
+| `-day-preset-volume` | `80` | Volume a preset starts at during the day, as a percent of the max volume (`0` leaves the volume unchanged) |
+| `-night-preset-volume` | `80` | Volume a preset starts at during the night, as a percent of the max volume (`0` leaves the volume unchanged) |
 | `-sleep-timer-start` | `18:30` | Presets started in this window set the Sonos sleep timer |
 | `-sleep-timer-end` | `04:00` | End of the sleep timer window |
 | `-sleep-timer` | `30m` | Sleep timer duration (`0` disables) |
 | `-cutoff` | `19:45` | Playback on the default speaker is stopped at this time (empty disables) |
 
 The max volume is enforced when a preset starts, on volume up, and at
-`-night-start`.
+`-night-start`. A preset sets the volume to the preset volume percent of the
+max, e.g. at night 80% of 20 is 16. The max is the lower of the schedule and
+the profile `max_volume`.
 
 ## Preset artwork
 

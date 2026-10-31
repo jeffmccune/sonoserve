@@ -31,7 +31,7 @@ profiles/1/avatar.jpg     default profile image
 | `speaker` | Sonos speaker the profile controls. Empty uses `-default-speaker`. |
 | `image` | A file in the profile folder, or an `http(s)` URL such as `https://github.com/<user>.png`. Default `avatar.jpg`. |
 | `color` | `#RRGGBB` accent color of the name. |
-| `default_volume` | Volume a preset starts at, never above the limit. `0` leaves the volume unchanged. |
+| `default_volume` | Volume a preset starts at, never above the limit. `0` uses `-day-preset-volume` or `-night-preset-volume` percent of the limit. |
 | `max_volume` | Volume limit. The lower of this and the time of day schedule applies. `0` for only the schedule. |
 | `help` | Lines shown on the ready screen. |
 | `keys` | Key actions overriding the defaults. |

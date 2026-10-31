@@ -364,3 +364,14 @@ Committed the `deploy.sh` server change, `music/presets/9/playlist-name.txt`, an
 - Every key press is sent to `POST /profiles/{id}/key`. Compiled with arduino-cli (97% of flash).
 
 **Docs:** New `website/docs/profiles.md`, README, and `cardputer/CLAUDE.md`.
+
+## Turn 23 - Preset volume as a percent of the max
+
+> I don't see a flag that sets the volume level when a preset button is pushed. The problem I'm facing is that the volume is too low when I play preset 7 each night around 7 PM with my son. I believe the volume is set to 15% of the max, which itself is set to 15%. I want a setting that sets the level, for example always 80% which is itself a porition of the max, for example 15%. The default value of the new flag should be 80%, and the default for the -night-max-volume flag should be 20% not 15%. Make these changes and commit. Ensure there is a new flag for night and day, so two new flags.
+>
+> Make sure go is format clean
+
+- New flags `-day-preset-volume` and `-night-preset-volume` (default `80`): a preset sets the volume to that percent of the max volume at the time, rounded. `0` leaves the volume unchanged (the max is still enforced). At 7 PM preset 7 now starts at 80% of 20 = 16.
+- `-night-max-volume` default is now `20`.
+- The max is the lower of the schedule and the profile `max_volume`. A profile or device `default_volume` is still an absolute override, so profiles 1 and 2 now set `default_volume: 0` to use the new flags.
+- Ran `gofmt` on every Go file in a separate commit; `gofmt -l .` is clean.
